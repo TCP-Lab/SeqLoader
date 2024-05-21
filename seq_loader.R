@@ -203,14 +203,19 @@ geneStats.xSeries <- function(series, annot = FALSE, robust = FALSE) {
 }
 
 # Get gene-wise summary stats out of an xModel object
-geneStats.xModel <- function(model, descriptive = MEAN, annot = FALSE) {
+# Meta-analysis Inclusion Criteria (maic)
+#   inclusive -> (default) keep ALL genes, even if not present in every series
+#   exclusive -> keep only genes present in every series (intersection)
+geneStats.xModel <- function(model, descriptive = MEAN,
+                             maic = "inclusive", annot = FALSE) {
   
   # Store descriptive stats for each series into one data frame
   model |> lapply(function(series) {
     xSeries_stats <- geneStats.xSeries(series, annot = FALSE, robust = FALSE)
     colnames(xSeries_stats)[-1] <- colnames(xSeries_stats)[-1] %+% "_" %+% attr(series, "own_name")
     xSeries_stats
-  }) |> Reduce(\(x, y) merge(x, y, by = 1, all = TRUE), x=_) -> large_stats
+  }) |> Reduce(\(x,y) merge(x, y, by = 1, all = ifelse(maic=="inclusive",T,F)),
+               x=_) -> large_stats
   
   # Set the list of effective sample sizes as attribute
   # ...to make them available to descriptive() function
@@ -280,11 +285,6 @@ NWMEAN <- function(large_stats) {
   return(xModel_stats)
 }
 
-
-
-
-
-
 # Here `logic` is an unquoted logical expression to be used as filter criterium.
 keepRuns.xSeries <- function(series, logic) {
   
@@ -292,7 +292,7 @@ keepRuns.xSeries <- function(series, logic) {
   logic_call <- substitute(logic)
   
   # Find runs in `series` that match the `logic` condition
-  series |> sapply(function(element){
+  series |> sapply(function(element) {
     if(grepl("(E|D|S)RR[0-9]{6,}", element |> attr("own_name"))) {
       # Evaluate captured expression in the proper environment
       logic_call |> eval(envir = element)
@@ -303,7 +303,6 @@ keepRuns.xSeries <- function(series, logic) {
   series[keep_these] |> structure(class = c("xModel", "list"))
 }
 
-
 # Here `logic` is a string, namely the double-quoted logical expression to be
 # used as filter criterium.
 # NOTE: this is an alternative backup version of the previous method, in case
@@ -311,7 +310,7 @@ keepRuns.xSeries <- function(series, logic) {
 keepRuns2.xSeries <- function(series, logic) {
   
   # Find runs in `series` that match the `logic` condition
-  series |> sapply(function(element){
+  series |> sapply(function(element) {
     if(grepl("(E|D|S)RR[0-9]{6,}", element |> attr("own_name"))) {
       # Evaluate the string expression in the proper data environment
       logic |> parse(text=_) |> eval() |> with(element, expr=_)
@@ -321,6 +320,4 @@ keepRuns2.xSeries <- function(series, logic) {
   # and return
   series[keep_these] |> structure(class = c("xModel", "list"))
 }
-
-
 

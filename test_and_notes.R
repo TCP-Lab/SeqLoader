@@ -1,4 +1,4 @@
-x <- new_bioModel(".")
+x <- new_xModel(".")
 
 otype(x)
 otype(x$GSE138309)
@@ -16,8 +16,8 @@ methods(print)
 
 
 
-target_dir <- "E:/UniTo Drive/WORKS/0010 - Ongoing/Endothelion/data/in/Lines/hCMEC_D3"
-
+target_dir <- "E:/UniTo Drive/WORKS/0010 - Ongoing/Endothelion/data/in/Lines/hCMEC_D3" # @ HOME
+target_dir <- "D:/UniTo Drive/WORKS/0010 - Ongoing/Endothelion/data/in/Lines/hCMEC_D3" # @ DBIOS
 
 
 
@@ -51,14 +51,15 @@ b <- geneStats.xSeries(hCMEC_D3$GSE138309, T, T)
 
 
 d1 <- geneStats.xModel(hCMEC_D3)
+d1 <- geneStats.xModel(hCMEC_D3, annot = T)
 d2 <- geneStats.xModel(hCMEC_D3, descriptive = MEDIAN)
 d3 <- geneStats.xModel(hCMEC_D3, descriptive = NWMEAN)
 
 
 
 
-d <- keepRuns.bioSeries(series_GSE195781, extra == 1)
-e <- keepRuns2.bioSeries(series_GSE195781, "extra == 1")
+f1 <- keepRuns.xSeries(hCMEC_D3$GSE138309, extra == 1)
+f2 <- keepRuns2.xSeries(series_GSE195781, "extra == 1")
 
 
   
