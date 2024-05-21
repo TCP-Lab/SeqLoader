@@ -7,7 +7,6 @@
 # NOT self-contained, but instead happily access variables from the outer scope.
 
 
-
 # --- Package Dependencies -----------------------------------------------------
 
 library(dplyr)    # `arrange()`, `select()`, `mutate()`
