@@ -44,13 +44,6 @@ friendly explanation of the INSDC and the related SRA data model.
 > the _Run_ accession. For this reason, it will be used here as the base
 > reference for the construction of _Series_ and _Models_ data structures.
 
-> [!NOTE]
-> For the purpose of a data re-analysis or meta-analysis (i.e., within the scope
-> of use of this package) one may not necessarily be interested in _all_ the
-> experimental conditions of the original study. For this reason, as opposed to
-> the all-inclusive terms _project_ and _study_, the more neutral _series_ was
-> preferred.
-
 ## SeqLoader Package
 ___SeqLoader___ provides `xSeries` and `xModel` S3 classes to represent _Series_
 and _Models_, respectively, as R objects that include both data and metadata.
@@ -63,26 +56,31 @@ and the related metadata.
 ### `xSeries` objects
 It is an object of class S3 that is constructed from a gene expression matrix
 and a metadata table. In the expression matrix, each row represents a gene (or
-transcript), while each column refers to a different sequencing _Run_ (among
-those of interest from the original study). There may possibly be one or more
-gene annotation columns (e.g., gene symbol, gene name, gene type, ...). In
-contrast, the metadata table is assumed to dedicate one row for each _Run_ and
-one column for each metadata of interest. The `xSeries` object then combines
-information from a typical gene expression matrix (possibly complete with
-annotations for genes) with metadata about individual _Runs_. Technically, an
-`xSeries` object is an R list containing one element for each _Run_ of the study
-in question, and an additional element containing gene annotations (which are
-common to each _Run_). Each _Run_ element is itself a list containing relevant
-metadata for the specific _Run_, and a `gene` data frame with raw or normalized
-counts for each gene. The `annotation` element, on the contrary, is a simple
-data frame.
+transcript), while each column refers to a different sequencing _Run_, with the
+possible addition of one or more columns for gene annotations (e.g., gene
+symbol, gene name, gene type, ...). In contrast, the metadata table is assumed
+to dedicate one row for each _Run_ and one column for each metadata of interest,
+among which a mandatory field for _Run_ accessions. The `xSeries` object then
+combines information from a typical gene expression matrix (possibly complete
+with annotations for genes) with metadata about individual _Runs_. Technically,
+an `xSeries` object is an R list containing one element for each _Run_ of the
+study in question, and an additional element containing gene annotations (which
+are common to each _Run_). Each _Run_ element is itself a list containing
+relevant metadata for the specific _Run_, and a `gene` data frame with raw or
+normalized counts for each gene. The `annotation` element, on the contrary, is a
+simple data frame.
 
 > [!IMPORTANT]
-> The `xSeries` object is made up of all _Runs_ for which there exist an entry
-> within the metadata table (i.e., usually all the _Runs_ from the original
-> study). However, since count matrix don't necessarily have to be complete,
-> only those _Runs_ included in the original count matrix will also feature a
-> `counts` column in the `genes` data frame within the `xSeries` representation.
+> For the purpose of a data re-analysis or meta-analysis, one may not
+> necessarily be interested in _all_ the samples or experimental conditions
+> included in the the original study. Rather, just a selection of them is
+> usually considered. For this reason, recomputed count matrices could feature
+> less columns (i.e., _Runs_) compared to the number of rows of the metadata
+> table. The `xSeries` object is made up of all _Runs_ for which there exist an
+> entry within the metadata table (i.e., usually all the _Runs_ from the
+> original study), but only those _Runs_ included in the loaded count matrix
+> will also feature a `counts` column in the `genes` data frame within the
+> `xSeries` representation.
 
 ###  `xModel` objects
 ...
