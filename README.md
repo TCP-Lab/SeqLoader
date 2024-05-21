@@ -24,10 +24,6 @@ friendly explanation of the INSDC and the related SRA data model.
 	`(E|D|S)RS[0-9]{6,}`) or, equivalently, _BioSamples_ (accession
 	`SAM(E|D|N)[A-Z]?[0-9]+`). Even _GEO Sample_ IDs (accession `GSM[0-9]+`) can
 	be found if data were originally brokered to INSDC’s SRA by GEO.
-	> [!NOTE]
-	> Most of the times, _Runs_ and _Samples_ are the same things, however it
-	> could happen that a single RNA _Sample_ is sequenced through multiple
-	> _Runs_ (also referred to as 'technical replicates').
 1. ___Series___: the set of all _Samples_/_Runs_ pertaining to a given
 	biological research project or experimental design, across all conditions of
 	interest to that particular study. This is roughly what INSDC refers to as
@@ -36,15 +32,24 @@ friendly explanation of the INSDC and the related SRA data model.
 	or ArrayExpress, _GEO Series_ IDs (accession `GSE[0-9]+`) or _AE Experiment_
 	IDs (accession `E-[A-Z]{4}-[0-9]+`) will be also present in SRA DBs and can
 	be used as _Study_ alias accession, respectively.
-	> [!NOTE]
-	> For the purpose of a data re-analysis or meta-analysis (i.e., within the
-	> scope of use of this package) one may not necessarily be interested in
-	> _all_ the experimental conditions of the original study. For this reason,
-	> as opposed to the all-inclusive terms _project_ and _study_, the more
-	> neutral _series_ was preferred.
 1. ___Model___: a collection of _Series_ dealing with the same biological model.
 	Since this is the central object of a meta-analysis, it has no corresponding
 	object in INSDC.
+
+> [!NOTE]
+> Most of the times, _Runs_ and _Samples_ are the same things, however it could
+> happen that a single RNA _Sample_ is sequenced through multiple _Runs_ (also
+> referred to as 'technical replicates'). Thus, the only ID that is ensured to
+> be unique on a per-file basis (even in the case of technical replicates), is
+> the _Run_ accession. For this reason, it will be used here as the base
+> reference for the construction of _Series_ and _Models_ data structures.
+
+> [!NOTE]
+> For the purpose of a data re-analysis or meta-analysis (i.e., within the scope
+> of use of this package) one may not necessarily be interested in _all_ the
+> experimental conditions of the original study. For this reason, as opposed to
+> the all-inclusive terms _project_ and _study_, the more neutral _series_ was
+> preferred.
 
 ## SeqLoader Package
 ___SeqLoader___ provides `xSeries` and `xModel` S3 classes to represent _Series_
@@ -55,35 +60,35 @@ ___SeqLoader___ constructor methods assume that RNA-Seq low-level analysis
 performed and that the starting point is a matrix of raw or normalized counts
 and the related metadata.
 
-## `xSeries` objects
-E' un oggetto di classe S3 che unisce le informazioni tipiche di una matrice di espressione annotata con i metadati relativi ai singoli campioni (o corse). In altre parole una oggetto xSeries contiene i dati di espressione (o le conte grezze) di tutti i campioni di interesse dello studio), metadati relativi ad ogni campione dlelo studio, e le annotazioni dei geni trasversali ad ogni campione. 
-NOTA: l'oggetto 'serie' contine tutte le run per cui esiste un entri nel file di metadati
-(tipicamente TUTTE le run dello studio), ma solo quelle con una corrispondente colonna nella matrice delle conte avranno un elemento serie_xxx$run_yyy$genes$counts non nullo!!
+### `xSeries` objects
+It is an object of class S3 that is constructed from a gene expression matrix
+and a metadata table. In the expression matrix, each row represents a gene (or
+transcript), while each column refers to a different sequencing _Run_ (among
+those of interest from the original study). There may possibly be one or more
+gene annotation columns (e.g., gene symbol, gene name, gene type, ...). In
+contrast, the metadata table is assumed to dedicate one row for each _Run_ and
+one column for each metadata of interest. The `xSeries` object then combines
+information from a typical gene expression matrix (possibly complete with
+annotations for genes) with metadata about individual _Runs_. Technically, an
+`xSeries` object is an R list containing one element for each _Run_ of the study
+in question, and an additional element containing gene annotations (which are
+common to each _Run_). Each _Run_ element is itself a list containing relevant
+metadata for the specific _Run_, and a `gene` data frame with raw or normalized
+counts for each gene. The `annotation` element, on the contrary, is a simple
+data frame.
 
-A list with  xxx elements, each of them being in turn a list of chars and integer 
-and a dataframe containing gene IDs and possibly raw counts 
-with attributes yyy
+> [!IMPORTANT]
+> The `xSeries` object is made up of all _Runs_ for which there exist an entry
+> within the metadata table (i.e., usually all the _Runs_ from the original
+> study). However, since count matrix don't necessarily have to be complete,
+> only those _Runs_ included in the original count matrix will also feature a
+> `counts` column in the `genes` data frame within the `xSeries` representation.
 
-##  `xModel` objects
+###  `xModel` objects
 ...
 
 
-
-NOTE: since the ENA run accession is the only ID that is ensured to be unique
-   on a per-file basis (even in the case of technical replicates), it is
-   used here as the base reference for the construction of `xSeries`
-   class objects.
-   Importantly, ENA provides Archive-Generated FASTQs Files for download as
-   an effective  means of bringing consistency to data provided. By
-   imposing a level of uniformity on these files, users know what to expect
-   of them and may incorporate them into pipelines with minimal friction.
-
-
-
-
-
-
-## Assumptions
+## Formal Assumptions
 A number of (hopefully reasonable) assumptions upon file and data organization
 are made for object construction to be successful.
 1. Each _Series_ (or _Study_) is represented by __two__ `CSV` or `TSV` files,
@@ -117,4 +122,10 @@ are made for object construction to be successful.
 	strings).
 1. Input counts from `CountMatrix` file can be either raw or normalized counts,
 	but in any case they are supposed to be in linear scale (not log-transformed)
+
+> [!IMPORTANT]
+> ENA provides Archive-Generated FASTQs Files for download as an effective means of bringing consistency to data provided. By
+   imposing a level of uniformity on these files, users know what to expect
+   of them and may incorporate them into pipelines with minimal friction.
+
 
