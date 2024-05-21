@@ -149,10 +149,18 @@ new_xModel <- function(target_dir = ".") {
 
 # --- Methods ------------------------------------------------------------------
 
-# Get the actual sample-size of a given xSeries
-size.xSeries <- function(series) {
+# Get the size of the whole Series (number of Runs from the metadata table)
+series_size.xSeries <- function(series) {
+  names(series) |> grep("(E|D|S)RR[0-9]{6,}", x=_, ignore.case = TRUE) |> length()
+}
+
+# Get the actual size of the sub-series of interest (number of Runs in the count matrix)
+selection_size.xSeries <- function(series) {
   series |> sapply(\(run) ncol(run$genes) == 2) |> unlist() |> sum()
 }
+
+# Get the size of the genome screened within a given Series
+genome_size.xSeries <- function(series) {series$annotation |> nrow()}
 
 # Get the read count matrix out of an xSeries object
 countMatrix.xSeries <- function(series, annot = FALSE) {
@@ -217,9 +225,9 @@ geneStats.xModel <- function(model, descriptive = MEAN,
   }) |> Reduce(\(x,y) merge(x, y, by = 1, all = ifelse(maic=="inclusive",T,F)),
                x=_) -> large_stats
   
-  # Set the list of effective sample sizes as attribute
+  # Set the list of the actual number of Runs per Series as attribute
   # ...to make them available to descriptive() function
-  attr(large_stats, "sample_size") <- sapply(model, size.xSeries)
+  attr(large_stats, "sample_size") <- sapply(model, selection_size.xSeries)
   
   # Compute model-level descriptive stats
   large_stats |> descriptive() -> xModel_stats
