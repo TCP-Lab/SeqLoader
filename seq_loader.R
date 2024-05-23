@@ -5,7 +5,8 @@
 # ~~~~~~~~~~~~~~~~~~~
 # To make the code lighter, anonymous functions defined in *apply or pipes are
 # NOT self-contained, but instead happily access variables from the outer scope.
-
+#
+# default methods are not implemented
 
 # --- Package Dependencies -----------------------------------------------------
 
@@ -141,26 +142,64 @@ new_xModel <- function(target_dir = ".") {
   structure(base_list, class = c("xModel", "list"))
 }
 
+# --- [ ... ] ------------------------------------------------------------------
 
+# Special subsetting behavior for objects that preserves their attributes, given
+# that standard subsetting drops all attributes except names, dim and dimnames.
+# Obviously, in this case, the generic already exists, so we only need to
+# provide the method.
+`[.xSeries` <- function(series, i, ...) {
+  
+  # Store original attributes for later restoring and update names
+  series |> attributes() -> bkp_attribs
+  if(!is.null(bkp_attribs$names)) {
+    bkp_attribs$names <- names(series)[i]
+  }
+  
+  # Standard subset of list
+  out <- unclass(series)[i]
+  
+  # Restore attributes (including 'class')
+  attributes(out) <- bkp_attribs
+  return(out)
+}
 
-# --- Generics -----------------------------------------------------------------
+# --- N_series -----------------------------------------------------------------
 
-
-
-# --- Methods ------------------------------------------------------------------
+N_series <- function(xSeries) {
+  UseMethod("N_series")
+}
 
 # Get the size of the whole Series (number of Runs from the metadata table)
-series_size.xSeries <- function(series) {
-  names(series) |> grep("(E|D|S)RR[0-9]{6,}", x=_, ignore.case = TRUE) |> length()
+N_series.xSeries <- function(series) {
+  names(series) |> grep("(E|D|S)RR[0-9]{6,}", x=_, ignore.case=T) |> length()
+}
+
+# --- N_selection --------------------------------------------------------------
+
+N_selection <- function(xSeries) {
+  UseMethod("N_selection")
 }
 
 # Get the actual size of the sub-series of interest (number of Runs in the count matrix)
-selection_size.xSeries <- function(series) {
+N_selection.xSeries <- function(series) {
   series |> sapply(\(run) ncol(run$genes) == 2) |> unlist() |> sum()
 }
 
+# --- N_genome -----------------------------------------------------------------
+
+N_genome <- function(xSeries) {
+  UseMethod("N_genome")
+}
+
 # Get the size of the genome screened within a given Series
-genome_size.xSeries <- function(series) {series$annotation |> nrow()}
+N_genome.xSeries <- function(series) {series$annotation |> nrow()}
+
+# --- countMatrix --------------------------------------------------------------
+
+countMatrix <- function(xSeries, annot) {
+  UseMethod("countMatrix")
+}
 
 # Get the read count matrix out of an xSeries object
 countMatrix.xSeries <- function(series, annot = FALSE) {
@@ -183,6 +222,12 @@ countMatrix.xSeries <- function(series, annot = FALSE) {
                           by.x = ids_index, by.y = "IDs", all.y = TRUE)
   }
   return(count_matrix)
+}
+
+# --- geneStats ----------------------------------------------------------------
+
+geneStats <- function(xObject, ...) {
+  UseMethod("geneStats")
 }
 
 # Get gene-wise summary stats out of an xSeries object
@@ -217,9 +262,21 @@ geneStats.xSeries <- function(series, annot = FALSE, robust = FALSE) {
 geneStats.xModel <- function(model, descriptive = MEAN,
                              maic = "inclusive", annot = FALSE) {
   
+  # Check if screened genomes are all equal across different Series
+  model |> sapply(function(series) {
+    setequal(series[[1]]$genes$IDs, model[[1]][[1]]$genes$IDs)
+  }) |> all() -> equal_genomes
+  if (not(equal_genomes)) {
+    warning("xModel with different genomes.\nThe size of the resulting genome will depend on the inclusion criterion ('maic').")
+  }
+  
   # Store descriptive stats for each series into one data frame
   model |> lapply(function(series) {
     xSeries_stats <- geneStats.xSeries(series, annot = FALSE, robust = FALSE)
+    ##
+    ## # Maybe useful, to add here:
+    ## if (maic == "inclusive") add a new column of gene-wise selection_size
+    ## 
     colnames(xSeries_stats)[-1] <- colnames(xSeries_stats)[-1] %+% "_" %+% attr(series, "own_name")
     xSeries_stats
   }) |> Reduce(\(x,y) merge(x, y, by = 1, all = ifelse(maic=="inclusive",T,F)),
@@ -227,18 +284,21 @@ geneStats.xModel <- function(model, descriptive = MEAN,
   
   # Set the list of the actual number of Runs per Series as attribute
   # ...to make them available to descriptive() function
-  attr(large_stats, "sample_size") <- sapply(model, selection_size.xSeries)
+  attr(large_stats, "selection_size") <- sapply(model, N_selection.xSeries)
   
   # Compute model-level descriptive stats
   large_stats |> descriptive() -> xModel_stats
   
+  # Model-level annotation synthesis
   if (annot) {
+    warning("Model-level annotation synthesis coming soon...")
     # Implement annotation appending
-    # Merge annotations from all the series by gene_ids (keeping all), then collapse by ','
-    # possible different gene symbols or gene names associated with the same ENSGENE.
-    # Finally merge this global annoation with xModel_stats
-    #model |> lapply(\(series) series$annotaton) |>
-    #  Reduce(\(x, y) merge(x, y, by = 1, all = TRUE), x=_)
+    #  1. Merge annotations from all the series by gene_ids (keeping all)
+    #     model |> lapply(\(series) series$annotaton) |>
+    #       Reduce(\(x, y) merge(x, y, by = 1, all = TRUE), x=_)
+    #  2. then consider all columns with the same names and collapse by ','
+    #     unique entries  associated with the same ENSG ID.
+    #  3. Merge this "global annotation" with xModel_stats
   }
   return(xModel_stats)
 }
@@ -269,14 +329,14 @@ NWMEAN <- function(large_stats) {
   large_stats |> colnames() |> grep("^Mean_", x=_) -> mean_index
   large_stats[,1, drop = FALSE] -> xModel_stats
   
-  large_stats |> attr("sample_size") -> N
+  large_stats |> attr("selection_size") -> N
   large_stats[,mean_index] -> series_mean
   
   # Use mapply to apply grepl element-wise and check correspondence between data
   # and attributes for each series (it should never happen... but just in case)
   mapply(grepl, names(N), colnames(series_mean)) |> all() -> good
   if (!good) {
-    stop("Series ID in 'large_stats' colnames do not match 'sample_size' attribute names.")
+    stop("Series ID in 'large_stats' colnames do not match 'selection_size' attribute names.")
   }
   
   # Operator %*% is used for matrix multiplication or dot product of two vectors
@@ -293,6 +353,12 @@ NWMEAN <- function(large_stats) {
   return(xModel_stats)
 }
 
+# --- keepRuns -----------------------------------------------------------------
+
+keepRuns <- function(xSeries, logic) {
+  UseMethod("keepRuns")
+}
+
 # Here `logic` is an unquoted logical expression to be used as filter criterium.
 keepRuns.xSeries <- function(series, logic) {
   
@@ -306,10 +372,13 @@ keepRuns.xSeries <- function(series, logic) {
       logic_call |> eval(envir = element)
     } else {TRUE}
   }) -> keep_these
-  # Restore attributes (subsetting drops all, except names, dim and dimnames)
-  # and return
-  series[keep_these] |> structure(class = c("xModel", "list"))
+  # Dispatch substetting to `[.xSeries`
+  return(series[keep_these])
 }
+
+
+
+# Currently with no generic
 
 # Here `logic` is a string, namely the double-quoted logical expression to be
 # used as filter criterium.
@@ -324,8 +393,7 @@ keepRuns2.xSeries <- function(series, logic) {
       logic |> parse(text=_) |> eval() |> with(element, expr=_)
     } else {TRUE}
   }) -> keep_these
-  # Restore attributes (subsetting drops all, except names, dim and dimnames)
-  # and return
-  series[keep_these] |> structure(class = c("xModel", "list"))
+  # Dispatch substetting to `[.xSeries`
+  return(series[keep_these])
 }
 
