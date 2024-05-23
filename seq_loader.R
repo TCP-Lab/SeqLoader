@@ -20,13 +20,14 @@ library(magrittr) # For pipe assignment operator %<>% and Aliases (equals())
 
 # --- Globals ------------------------------------------------------------------
 
-GLOBAL <- list(geneID_regex = "gene.*id|transcript.*id|ENSEMBL|ENSEMBLTRANS",
+GLOBAL <- list(filename = list(counts = "_countmatrix.*",
+                               metadata = "_meta.*"),
+               geneID_regex = "gene.*id|transcript.*id|ENSEMBL|ENSEMBLTRANS",
                run_regex = "(E|D|S)RR[0-9]{6,}")
-
 
 # --- Internal Functions -------------------------------------------------------
 
-# Automatically adapt file reading to CSV or TSV format
+# Automatically adapt to CSV or TSV formats
 read.xsv <- function(file, header = TRUE) {
   if (grepl(".csv$", file, ignore.case = TRUE)) {
     read.csv(file, header = header)
@@ -37,8 +38,22 @@ read.xsv <- function(file, header = TRUE) {
   }
 }
 
-# A Java-style binary operator (with 2 aliases) to concatenate strings in pipe
-`%|+>%` <- `%+>%` <- `%+%` <- \(x,y){paste0(x,y)}
+# A Java-style binary operator to concatenate strings in pipe
+`%+%` <- \(x,y){paste0(x,y)}
+
+# A Java-style binary operator to construct paths in a platform-independent way
+`%//%` <- \(x,y){file.path(x, y, fsep = .Platform$file.sep)}
+
+# Any named list knows the names of all the elements it contains (under its
+# attribute 'names'), but it doesn't know its own (even when it has one, e.g.,
+# because it is itself element of a named list)! So, this function sets as
+# attribute for each element of a named list its own name (to access it later).
+set_own_names <- function(parent_list) {
+  names(parent_list) |> sapply(function(element_name) {
+    attr(parent_list[[element_name]], "own_name") <- element_name
+    return(parent_list[[element_name]])
+  })
+}
 
 # Takes in a series ID (e.g., PRJNA141411, or GSE29580), a file list (actually
 # a character vector), and a vector of two patterns to match (one for the count
@@ -71,50 +86,46 @@ check_filenames <- function(series_ID, files, pattern) {
   }
   return(skip_this)
 }
-  
+
 # --- Constructors -------------------------------------------------------------
 
 # Create a new xSeries
 new_xSeries <- function(series_ID, target_dir = ".") {
 
   # Get all file names from target directory
-  list.files(path = target_dir, pattern = "\\.[ct]sv$") |> sort() -> files
-  # Patterns to match
-  pattern <- c(count = "_countmatrix.*", meta = "_meta.*")
+  target_dir |> list.files(pattern = "\\.[ct]sv$") |> sort() -> files
   
   # Load data-metadata pair (also sort metadata by `ena_run`)
-  file.path(target_dir,
-            series_ID %+% pattern["count"] |> grep(files, ignore.case=T, value=T)
-            ) |> read.xsv() -> counts_df
-  file.path(target_dir,
-            series_ID %+% pattern["meta"]  |> grep(files, ignore.case=T, value=T)
-            ) |> read.xsv() |> arrange(ena_run) -> meta_df
+  series_ID %+% GLOBAL$filename$counts |>
+    grep(files, ignore.case=T, value=T) -> count_file
+  target_dir %//% count_file |> read.xsv() -> counts_df
   
-  # Convert rows to (named) list
-  meta_df |> split(seq(nrow(meta_df))) |> setNames(meta_df$ena_run) -> meta_list
+  series_ID %+% GLOBAL$filename$metadata |>
+    grep(files, ignore.case=T, value=T) -> meta_file
+  target_dir %//% meta_file |> read.xsv() |> arrange(ena_run) -> meta_df
+  
+  # Convert rows to a (named) list
+  meta_df |> split(seq(nrow(meta_df))) |> setNames(meta_df$ena_run) -> series
   
   # Find gene ID column in `counts_df`
   GLOBAL$geneID_regex |> grep(colnames(counts_df), ignore.case=T) -> ids_index
   
-  # Build up a `series` object (list)
-  lapply(meta_list, function(run) {
+  # Add gene information to each Run in `series`
+  series %<>% lapply(function(run) {
     # Look for Run's count data...
     run$ena_run |> grep(colnames(counts_df)) -> count_index
-    # ...and add both counts (if present) and IDs to each Run-list as data frame
+    # ...and add both counts (if present) and IDs to each Run as data frame
     counts_df |> select(IDs = !!ids_index, counts = !!count_index) |>
       list(genes=_) |> append(run, values=_)
-    }) -> series
-
-  # Add annotation to `series`
-  meta_df$ena_run |> paste(collapse = "|") |> grep(colnames(counts_df), invert=T) -> annot_index
-  counts_df |> select(!!annot_index) |> list(annotation=_) |> append(series, values=_) -> series
+    })
   
-  # Any list knows all the names of the elements it contains (under its
-  # attribute 'names'), but it doesn't know its own!
-  # So, set as attribute for each run its own name (to access them later)
-  sapply(names(series), function(name) {
-    attr(series[[name]], "own_name") <- name
-    return(series[[name]])}) -> series
+  # Add annotation to `series`
+  GLOBAL$run_regex |> grep(colnames(counts_df), invert=T) -> annot_index
+  counts_df |> select(!!annot_index) |>
+    list(annotation=_) |> append(series, values=_) -> series
+  
+  # Assign to each Run its own name
+  series %<>% set_own_names()
   
   # Make `series` an S3 object (inheriting from class 'list') and return it
   structure(series, class = c("xSeries", "list"))
@@ -140,15 +151,13 @@ new_xModel <- function(target_dir = ".") {
   series_IDs <- series_IDs[not(to_skip)]
   
   # Build up the xModel object
-  lapply(series_IDs, new_xSeries, target_dir) |> setNames(series_IDs) -> base_list
+  lapply(series_IDs, new_xSeries, target_dir) |> setNames(series_IDs) -> model
   
-  # Set as attribute for series its own name (to access them later)
-  sapply(names(base_list), function(name) {
-    attr(base_list[[name]], "own_name") <- name
-    return(base_list[[name]])}) -> base_list
+  # Assign to each Run its own name
+  model %<>% set_own_names()
   
-  # Make `base_list` an S3 object (inheriting from class 'list') and return it
-  structure(base_list, class = c("xModel", "list"))
+  # Make `model` an S3 object (inheriting from class 'list') and return it
+  structure(model, class = c("xModel", "list"))
 }
 
 # --- [ ... ] ------------------------------------------------------------------

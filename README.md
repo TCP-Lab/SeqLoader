@@ -109,12 +109,12 @@ are made for object construction to be successful.
 	PRJNA847413_meta.csv
 	SRP379268_metadata.tsv
 	```
-1. Count tables have proper column names as header, including a mandatory gene
-	ID column matching the regex `gene.*id|transcript.*id|ENSEMBL|ENSEMBLTRANS`
-	(usually being `gene_id` or `transcript_id`).
 1. Metadata tables have proper column names as header, among which only
 	`ena_run` is mandatory, as the only ID that was certainly unique to each
 	FASTQ file in the original study (i.e., _Series_).
+1. Count tables have proper column names as header, including a mandatory gene
+	ID column matching the regex `gene.*id|transcript.*id|ENSEMBL|ENSEMBLTRANS`
+	(usually being `gene_id` or `transcript_id`).
 1. Within the count table, each count-containing column is named using the
 	corresponding `ena_run` ID in the header (along with other possible text
 	strings).
