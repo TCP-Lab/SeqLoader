@@ -6,6 +6,10 @@
 # To make the code lighter, anonymous functions defined in *apply or pipes are
 # NOT self-contained, but instead happily access variables from the outer scope.
 #
+# Also elements form GLOBAL list are accessed without being passed as arguments.
+# However, global variables are never modified andthe (uppercase) 'GLOBAL' name
+# should be enough to make the whole process explicit.
+#
 # default methods are not implemented
 
 # --- Package Dependencies -----------------------------------------------------
@@ -13,6 +17,12 @@
 library(dplyr)    # `arrange()`, `select()`, `mutate()`
 library(rlang)    # Injection operator `!!`
 library(magrittr) # For pipe assignment operator %<>% and Aliases (equals())
+
+# --- Globals ------------------------------------------------------------------
+
+GLOBAL <- list(geneID_regex = "gene.*id|transcript.*id|ENSEMBL|ENSEMBLTRANS",
+               run_regex = "(E|D|S)RR[0-9]{6,}")
+
 
 # --- Internal Functions -------------------------------------------------------
 
@@ -84,8 +94,7 @@ new_xSeries <- function(series_ID, target_dir = ".") {
   meta_df |> split(seq(nrow(meta_df))) |> setNames(meta_df$ena_run) -> meta_list
   
   # Find gene ID column in `counts_df`
-  "gene.*id|transcript.*id|ENSEMBL|ENSEMBLTRANS" |>
-    grep(colnames(counts_df), ignore.case=T) -> ids_index
+  GLOBAL$geneID_regex |> grep(colnames(counts_df), ignore.case=T) -> ids_index
   
   # Build up a `series` object (list)
   lapply(meta_list, function(run) {
@@ -172,7 +181,7 @@ N_series <- function(xSeries) {
 
 # Get the size of the whole Series (number of Runs from the metadata table)
 N_series.xSeries <- function(series) {
-  names(series) |> grep("(E|D|S)RR[0-9]{6,}", x=_, ignore.case=T) |> length()
+  names(series) |> grep(GLOBAL$run_regex, x=_, ignore.case=T) |> length()
 }
 
 # --- N_selection --------------------------------------------------------------
@@ -204,7 +213,7 @@ countMatrix <- function(xSeries, annot) {
 # Get the read count matrix out of an xSeries object
 countMatrix.xSeries <- function(series, annot = FALSE) {
   # Find run elements
-  grep("(E|D|S)RR[0-9]{6,}", names(series), ignore.case=T) -> run_index
+  grep(GLOBAL$run_regex, names(series), ignore.case=T) -> run_index
   
   # Extract counts, restore run ID names, then merge into one data frame
   series[run_index] |> lapply(function(run) {
@@ -216,8 +225,7 @@ countMatrix.xSeries <- function(series, annot = FALSE) {
   if (annot) {
     # Get annotation
     annot <- series$annotation
-    "gene.*id|transcript.*id|ENSEMBL|ENSEMBLTRANS" |>
-      grep(colnames(annot), ignore.case=T) -> ids_index
+    GLOBAL$geneID_regex |> grep(colnames(annot), ignore.case=T) -> ids_index
     count_matrix <- merge(annot, count_matrix,
                           by.x = ids_index, by.y = "IDs", all.y = TRUE)
   }
@@ -367,7 +375,7 @@ keepRuns.xSeries <- function(series, logic) {
   
   # Find runs in `series` that match the `logic` condition
   series |> sapply(function(element) {
-    if(grepl("(E|D|S)RR[0-9]{6,}", element |> attr("own_name"))) {
+    if(grepl(GLOBAL$run_regex, element |> attr("own_name"))) {
       # Evaluate captured expression in the proper environment
       logic_call |> eval(envir = element)
     } else {TRUE}
@@ -388,7 +396,7 @@ keepRuns2.xSeries <- function(series, logic) {
   
   # Find runs in `series` that match the `logic` condition
   series |> sapply(function(element) {
-    if(grepl("(E|D|S)RR[0-9]{6,}", element |> attr("own_name"))) {
+    if(grepl(GLOBAL$run_regex, element |> attr("own_name"))) {
       # Evaluate the string expression in the proper data environment
       logic |> parse(text=_) |> eval() |> with(element, expr=_)
     } else {TRUE}
