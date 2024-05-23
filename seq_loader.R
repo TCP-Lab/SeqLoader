@@ -28,7 +28,7 @@ read.xsv <- function(file, header = TRUE) {
 }
 
 # A Java-style binary operator (with 2 aliases) to concatenate strings in pipe
-`%|+>%` <- `%+>%` <- `%+%` <- \(x,y)paste0(x,y)
+`%|+>%` <- `%+>%` <- `%+%` <- \(x,y){paste0(x,y)}
 
 # Takes in a series ID (e.g., PRJNA141411, or GSE29580), a file list (actually
 # a character vector), and a vector of two patterns to match (one for the count
@@ -234,7 +234,7 @@ geneStats <- function(xObject, ...) {
 geneStats.xSeries <- function(series, annot = FALSE, robust = FALSE) {
   
   # Get a log-transformed count matrix
-  count_matrix <- countMatrix.xSeries(series, annot = annot)
+  count_matrix <- countMatrix(series, annot = annot)
   count_index <- sapply(count_matrix, is.numeric)
   count_matrix[,count_index] <- log2(count_matrix[,count_index] + 1)
   
@@ -284,7 +284,7 @@ geneStats.xModel <- function(model, descriptive = MEAN,
   
   # Set the list of the actual number of Runs per Series as attribute
   # ...to make them available to descriptive() function
-  attr(large_stats, "selection_size") <- sapply(model, N_selection.xSeries)
+  attr(large_stats, "selection_size") <- sapply(model, N_selection)
   
   # Compute model-level descriptive stats
   large_stats |> descriptive() -> xModel_stats

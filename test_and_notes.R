@@ -41,6 +41,11 @@ hCMEC_D3 <- new_xModel(target_dir)
 s3_dispatch(geneStats(hCMEC_D3))
 s3_dispatch(geneStats(hCMEC_D3$GSE138309))
 
+s3_dispatch(`[`(hCMEC_D3))
+s3_dispatch(`[`(hCMEC_D3$GSE138309))
+s3_dispatch(`[`(hCMEC_D3$GSE138309$SRR10217414))
+
+
 otype(hCMEC_D3)
 otype(hCMEC_D3$GSE138309)
 otype(hCMEC_D3$GSE138309$SRR10217414)
@@ -80,39 +85,32 @@ geneStats(hCMEC_D3$GSE138309$SRR10217414)
 
 
 # Dispatch to keepRuns.xSeries
+attributes(f1)
 f1 <- keepRuns(hCMEC_D3$GSE138309, extra == 1)
+attributes(f1)
 
 # Cannot dispatch
 f2 <- keepRuns2.xSeries(series_GSE195781, "extra == 1")
 
 
-attributes(series_GSE195781)[["names"]]
-
-series_GSE195781 |> attributes() -> bkp_attribs
-bkp_attribs["names"] <- NULL
-bkp_attribs
-attributes(series_GSE195781) <- bkp_attribs
-series_GSE195781 |> attributes()
-
-attr
-
-series_GSE195781 |> attributes()
-series_GSE195781[c(1,2,3)] |> attributes()
 
 
-series_GSE195781 |> unclass() |> class()
 
 
-series_GSE195781 |> attr("own_name")
-
+attributes(series_GSE195781)
 attr(series_GSE195781, "pippo") <- "bestia"
+attributes(series_GSE195781)
+keepRuns(series_GSE195781, extra == 1) |> View()
+keepRuns(series_GSE195781, extra == 1) |> attributes()
 
-hCMEC_D3$GSE138309 -> a
-hCMEC_D3$GSE138309 |> keepRuns(extra != 0) -> b
 
-## uNA SERIE COSTRUITA EX NOVO POSSIEDE L'ATTRIBUTO OWN_NAME ??
-## iN TAL CASO PREVEDERNE IL RIPRISTINO DA PARTE DI keepRuns
-# Valutare il cambio own_name -> self_name
+
+
+
+cerca tutti [[]] sostituibili con $
+  
+  %<>%
+
 
 
 # to revert the effect of split(seq(nrow(meta_df))) and get the metadata dataframe back!! 
