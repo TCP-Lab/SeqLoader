@@ -66,7 +66,7 @@ set_own_names <- function(parent_list) {
   names(parent_list) |> lapply(function(element_name) {
     attr(parent_list[[element_name]], "own_name") <- element_name
     return(parent_list[[element_name]])
-  }) |> setNames(names(parent_list))
+  }) |> setNames(names(parent_list)) # Also keep original names in parent list
 }
 
 # Takes in a series ID (e.g., PRJNA141411, or GSE29580), a file list (actually
@@ -153,16 +153,13 @@ new_xModel <- function(target_dir = ".") {
   # Clean series IDs
   files |> sub("_.*$", "", x=_) |> sort() |> unique() -> series_IDs
   
-  # Patterns to match
-  pattern <- c(count = "_countmatrix.*", meta = "_meta.*")
-  
-  # Check filenames for series not to include
+  # Check filename pairing for series not to include
   to_skip <- vector(mode = "logical", length = 0)
-  sapply(series_IDs, check_pairing, files, pattern) -> to_skip
+  series_IDs |> sapply(check_pairing, files, GLOBAL$filename) -> to_skip
   series_IDs <- series_IDs[not(to_skip)]
   
   # Build up the xModel object
-  lapply(series_IDs, new_xSeries, target_dir) |> setNames(series_IDs) -> model
+  series_IDs |> lapply(new_xSeries, target_dir) |> setNames(series_IDs) -> model
   
   # Assign to each Run its own name
   model %<>% set_own_names()
