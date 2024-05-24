@@ -33,6 +33,10 @@ GLOBAL <- list(filename = list(counts = "_countmatrix.*",
 # A Java-style binary operator to construct paths in a platform-independent way.
 `%//%` <- \(x,y){file.path(x, y, fsep = .Platform$file.sep)}
 
+# Shorthand for case insensitive 'grep' and 'grepl'
+grepi <- function(pattern, x, ...) {grep(pattern, x, ignore.case = TRUE, ...)}
+grepli <- function(pattern, x, ...) {grepl(pattern, x, ignore.case = TRUE, ...)}
+
 # Only called by constructors. Finds all the CSV and TSV files within the target
 # directory. If any, performs a filename validity check and returns a character
 # vector of suitable files. Stops execution (i.e., object construction) if none
@@ -40,9 +44,7 @@ GLOBAL <- list(filename = list(counts = "_countmatrix.*",
 get_files <- function(target_dir) {
   # Scan target directory looking for valid filenames
   target_dir |> list.files(pattern = "\\.[ct]sv$", ignore.case=T) -> files
-  GLOBAL$filename |> paste(collapse = "|") |>
-    grep(files, ignore.case=T, value=T) |> sort() -> files
-  
+  GLOBAL$filename |> paste(collapse = "|") |> grepi(files, value=T) |> sort() -> files
   if (length(files) == 0) {
     "Can't find suitable CSV/TSV files in " %+% target_dir |> stop()
   }
@@ -50,14 +52,10 @@ get_files <- function(target_dir) {
 }
 
 # Reads a table from file, automatically adapting to CSV or TSV formats.
-read.xsv <- function(file, header = TRUE) {
-  if (grepl(".csv$", file, ignore.case = TRUE)) {
-    read.csv(file, header = header)
-  } else if (grepl(".tsv$", file, ignore.case = TRUE)) {
-    read.delim(file, header = header)
-  } else {
-    stop("Non-compliant file extension.")
-  }
+read.xsv <- function(file, header = TRUE, ...) {
+  if (grepli(".csv$", file)) {read.csv(file, header = header, ...)}
+  else if (grepli(".tsv$", file)) {read.delim(file, header = header, ...)}
+  else {stop("Non-compliant file extension.")}
 }
 
 # Any named list knows the names of all the elements it contains (under its
@@ -83,7 +81,7 @@ check_filenames <- function(series_ID, files, pattern) {
   skip_this <- FALSE
   
   # Find file pair
-  series_ID %+% "_" |> grep(files, ignore.case=T, value=T) -> file_pair
+  series_ID %+% "_" |> grepi(files, value=T) -> file_pair
   # Check them
   if (length(file_pair) != 2) {
     "Wrong number of files in series " %+% series_ID %+% "... skip it!" |> warning()
@@ -94,7 +92,7 @@ check_filenames <- function(series_ID, files, pattern) {
     # logic below may not seem immediately self-evident, but it's fast and,
     # trust me, it works: this 'sapply' will return an identity matrix iff
     # condition is met. Try it.
-    sapply(pattern, grepl, file_pair, ignore.case=T) |> equals(diag(2)) |> all() -> matching
+    sapply(pattern, grepli, file_pair) |> equals(diag(2)) |> all() -> matching
     if (not(matching)) {
       "Bad filename pair in series " %+% series_ID %+% "... skip it!" |> warning()
       skip_this <- TRUE
@@ -112,33 +110,31 @@ new_xSeries <- function(series_ID, target_dir = ".") {
   target_dir |> get_files() -> files
   
   # Load data-metadata pair (also sort metadata by `ena_run`)
-  series_ID %+% GLOBAL$filename$counts |>
-    grep(files, ignore.case=T, value=T) -> count_file
+  series_ID %+% GLOBAL$filename$counts |> grepi(files, value=T) -> count_file
   target_dir %//% count_file |> read.xsv() -> counts_df
   
-  series_ID %+% GLOBAL$filename$metadata |>
-    grep(files, ignore.case=T, value=T) -> meta_file
+  series_ID %+% GLOBAL$filename$metadata |> grepi(files, value=T) -> meta_file
   target_dir %//% meta_file |> read.xsv() |> arrange(ena_run) -> meta_df
   
   # Convert rows to a (named) list
   meta_df |> split(seq(nrow(meta_df))) |> setNames(meta_df$ena_run) -> series
   
   # Find gene ID column in `counts_df`
-  GLOBAL$geneID_regex |> grep(colnames(counts_df), ignore.case=T) -> ids_index
+  GLOBAL$geneID_regex |> grepi(colnames(counts_df)) -> ids_index
   
   # Add gene information to each Run in `series`
   series %<>% lapply(function(run) {
     # Look for Run's count data...
     # (search for "isolated" Run IDs, not to confuse, e.g., SRR123 with SRR1234)
     "(^|[^a-zA-Z0-9])" %+% run$ena_run %+% "($|[^a-zA-Z0-9])" |>
-      grep(colnames(counts_df), ignore.case=T) -> count_index
+      grepi(colnames(counts_df)) -> count_index
     # ...and add both counts (if present) and IDs to each Run as data frame
     counts_df |> select(IDs = !!ids_index, counts = !!count_index) |>
       list(genes=_) |> append(run, values=_)
     })
   
   # Add annotation to `series`
-  GLOBAL$run_regex |> grep(colnames(counts_df), ignore.case=T, invert=T) -> annot_index
+  GLOBAL$run_regex |> grepi(colnames(counts_df), invert=T) -> annot_index
   counts_df |> select(!!annot_index) |>
     list(annotation=_) |> append(series, values=_) -> series
   
@@ -206,7 +202,7 @@ N_series <- function(xSeries) {
 
 # Get the size of the whole Series (number of Runs from the metadata table)
 N_series.xSeries <- function(series) {
-  names(series) |> grep(GLOBAL$run_regex, x=_, ignore.case=T) |> length()
+  names(series) |> grepi(GLOBAL$run_regex, x=_) |> length()
 }
 
 # --- N_selection --------------------------------------------------------------
@@ -238,7 +234,7 @@ countMatrix <- function(xSeries, annot) {
 # Get the read count matrix out of an xSeries object
 countMatrix.xSeries <- function(series, annot = FALSE) {
   # Find run elements
-  grep(GLOBAL$run_regex, names(series), ignore.case=T) -> run_index
+  grepi(GLOBAL$run_regex, names(series)) -> run_index
   
   # Extract counts, restore run ID names, then merge into one data frame
   series[run_index] |> lapply(function(run) {
@@ -250,7 +246,7 @@ countMatrix.xSeries <- function(series, annot = FALSE) {
   if (annot) {
     # Get annotation
     annot <- series$annotation
-    GLOBAL$geneID_regex |> grep(colnames(annot), ignore.case=T) -> ids_index
+    GLOBAL$geneID_regex |> grepi(colnames(annot)) -> ids_index
     count_matrix <- merge(annot, count_matrix,
                           by.x = ids_index, by.y = "IDs", all.y = TRUE)
   }
