@@ -49,7 +49,7 @@ get_files <- function(target_dir) {
   return(files)
 }
 
-# Automatically adapt to CSV or TSV formats
+# Reads a table from file, automatically adapting to CSV or TSV formats.
 read.xsv <- function(file, header = TRUE) {
   if (grepl(".csv$", file, ignore.case = TRUE)) {
     read.csv(file, header = header)
@@ -61,8 +61,8 @@ read.xsv <- function(file, header = TRUE) {
 }
 
 # Any named list knows the names of all the elements it contains (under its
-# attribute 'names'), but it doesn't know its own (even when it has one, e.g.,
-# because it is itself element of a named list)! So, this function sets as
+# 'names' attribute), but it doesn't know its own (even when it has one, e.g.,
+# because it is itself an element of a named list)! So, this function sets as
 # attribute for each element of a named list its own name (to access it later).
 set_own_names <- function(parent_list) {
   names(parent_list) |> sapply(function(element_name) {
@@ -129,7 +129,9 @@ new_xSeries <- function(series_ID, target_dir = ".") {
   # Add gene information to each Run in `series`
   series %<>% lapply(function(run) {
     # Look for Run's count data...
-    run$ena_run |> grep(colnames(counts_df)) -> count_index
+    # (search for "isolated" Run IDs, not to confuse, e.g., SRR123 with SRR1234)
+    "(^|[^a-zA-Z0-9])" %+% run$ena_run %+% "($|[^a-zA-Z0-9])" |>
+      grep(colnames(counts_df)) -> count_index
     # ...and add both counts (if present) and IDs to each Run as data frame
     counts_df |> select(IDs = !!ids_index, counts = !!count_index) |>
       list(genes=_) |> append(run, values=_)
