@@ -63,10 +63,10 @@ read.xsv <- function(file, header = TRUE, ...) {
 # because it is itself an element of a named list)! So, this function sets as
 # attribute for each element of a named list its own name (to access it later).
 set_own_names <- function(parent_list) {
-  names(parent_list) |> sapply(function(element_name) {
+  names(parent_list) |> lapply(function(element_name) {
     attr(parent_list[[element_name]], "own_name") <- element_name
     return(parent_list[[element_name]])
-  })
+  }) |> setNames(names(parent_list))
 }
 
 # Takes in a series ID (e.g., PRJNA141411, or GSE29580), a file list (actually
@@ -105,7 +105,8 @@ new_xSeries <- function(series_ID, target_dir = ".") {
 
   # Get all CSV and TSV files from target directory and check pairing
   target_dir |> get_files() -> files
-  series_ID |> check_pairing(files, GLOBAL$filename) |> ifelse(return(), NA)
+  series_ID |> check_pairing(files, GLOBAL$filename) |> ifelse(return(), NA) |>
+    invisible()
   
   # Load data-metadata pair (also sort metadata by `ena_run`)
   series_ID %+% GLOBAL$filename$counts |> grepi(files, value=T) -> count_file
@@ -120,13 +121,13 @@ new_xSeries <- function(series_ID, target_dir = ".") {
   # Find gene ID column in `counts_df`
   GLOBAL$geneID_regex |> grepi(colnames(counts_df)) -> ids_index
   
-  # Add gene information to each Run in `series`
+  # Add `genes` information to each Run in `series`
   series %<>% lapply(function(run) {
     # Look for Run's count data...
     # (search for "isolated" Run IDs, not to confuse, e.g., SRR123 with SRR1234)
     "(^|[^a-zA-Z0-9])" %+% run$ena_run %+% "($|[^a-zA-Z0-9])" |>
       grepi(colnames(counts_df)) -> count_index
-    # ...and add both counts (if present) and IDs to each Run as data frame
+    # ...and add both counts (if present) and IDs to each Run, as data frame
     counts_df |> select(IDs = !!ids_index, counts = !!count_index) |>
       list(genes=_) |> append(run, values=_)
     })
