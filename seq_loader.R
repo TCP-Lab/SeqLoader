@@ -70,31 +70,28 @@ set_own_names <- function(parent_list) {
 }
 
 # Takes in a series ID (e.g., PRJNA141411, or GSE29580), a file list (actually
-# a character vector), and a vector of two patterns to match (one for the count
-# matrix files and the other for metadata).
-# Returns FALSE (i.e., do not skip that series) if both files of counts and
-# metadata are within the file list. Returns TRUE (i.e., skip that series)
-# otherwise.
-check_filenames <- function(series_ID, files, pattern) {
-  
+# a character vector), and a vector or list of two patterns to match (one for
+# the count matrix files and the other for metadata). Returns FALSE (i.e., do
+# not skip that series) if both files of counts and metadata are within the file
+# list. Returns TRUE (i.e., skip that series) otherwise.
+check_pairing <- function(series_ID, files, pattern) {
   # Set "keep it" as default
   skip_this <- FALSE
-  
   # Find file pair
   series_ID %+% "_" |> grepi(files, value=T) -> file_pair
   # Check them
   if (length(file_pair) != 2) {
-    "Wrong number of files in series " %+% series_ID %+% "... skip it!" |> warning()
+    "Wrong number of files in series " %+% series_ID %+% ": skip!" |> warning()
     skip_this <- TRUE
   } else {
     # Check if the first `file_pair` element matches 'count' pattern AND the
     # second one matches 'meta' pattern (remember files are sorted). NOTE: the
     # logic below may not seem immediately self-evident, but it's fast and,
-    # trust me, it works: this 'sapply' will return an identity matrix iff
+    # trust me, it works: this 'sapply' will return a 2-by-2 identity matrix iff
     # condition is met. Try it.
-    sapply(pattern, grepli, file_pair) |> equals(diag(2)) |> all() -> matching
+    pattern |> sapply(grepli, file_pair) |> equals(diag(2)) |> all() -> matching
     if (not(matching)) {
-      "Bad filename pair in series " %+% series_ID %+% "... skip it!" |> warning()
+      "Bad filename pair in series " %+% series_ID %+% ": skip!" |> warning()
       skip_this <- TRUE
     }
   }
@@ -106,8 +103,9 @@ check_filenames <- function(series_ID, files, pattern) {
 # Create a new xSeries
 new_xSeries <- function(series_ID, target_dir = ".") {
 
-  # Get all CSV and TSV files from target directory
+  # Get all CSV and TSV files from target directory and check pairing
   target_dir |> get_files() -> files
+  series_ID |> check_pairing(files, GLOBAL$filename) |> ifelse(return(), NA)
   
   # Load data-metadata pair (also sort metadata by `ena_run`)
   series_ID %+% GLOBAL$filename$counts |> grepi(files, value=T) -> count_file
@@ -159,7 +157,7 @@ new_xModel <- function(target_dir = ".") {
   
   # Check filenames for series not to include
   to_skip <- vector(mode = "logical", length = 0)
-  sapply(series_IDs, check_filenames, files, pattern) -> to_skip
+  sapply(series_IDs, check_pairing, files, pattern) -> to_skip
   series_IDs <- series_IDs[not(to_skip)]
   
   # Build up the xModel object
