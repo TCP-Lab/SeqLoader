@@ -83,18 +83,18 @@ check_filenames <- function(series_ID, files, pattern) {
   skip_this <- FALSE
   
   # Find file pair
-  series_ID %+% "_" |> grep(files, value=T) -> run_pair
+  series_ID %+% "_" |> grep(files, ignore.case=T, value=T) -> file_pair
   # Check them
-  if (length(run_pair) != 2) {
+  if (length(file_pair) != 2) {
     "Wrong number of files in series " %+% series_ID %+% "... skip it!" |> warning()
     skip_this <- TRUE
   } else {
-    # Check if the first `run_pair` element matches 'count' pattern AND the
+    # Check if the first `file_pair` element matches 'count' pattern AND the
     # second one matches 'meta' pattern (remember files are sorted). NOTE: the
     # logic below may not seem immediately self-evident, but it's fast and,
     # trust me, it works: this 'sapply' will return an identity matrix iff
     # condition is met. Try it.
-    sapply(pattern, grepl, run_pair, ignore.case=T) |> equals(diag(2)) |> all() -> matching
+    sapply(pattern, grepl, file_pair, ignore.case=T) |> equals(diag(2)) |> all() -> matching
     if (not(matching)) {
       "Bad filename pair in series " %+% series_ID %+% "... skip it!" |> warning()
       skip_this <- TRUE
@@ -131,14 +131,14 @@ new_xSeries <- function(series_ID, target_dir = ".") {
     # Look for Run's count data...
     # (search for "isolated" Run IDs, not to confuse, e.g., SRR123 with SRR1234)
     "(^|[^a-zA-Z0-9])" %+% run$ena_run %+% "($|[^a-zA-Z0-9])" |>
-      grep(colnames(counts_df)) -> count_index
+      grep(colnames(counts_df), ignore.case=T) -> count_index
     # ...and add both counts (if present) and IDs to each Run as data frame
     counts_df |> select(IDs = !!ids_index, counts = !!count_index) |>
       list(genes=_) |> append(run, values=_)
     })
   
   # Add annotation to `series`
-  GLOBAL$run_regex |> grep(colnames(counts_df), invert=T) -> annot_index
+  GLOBAL$run_regex |> grep(colnames(counts_df), ignore.case=T, invert=T) -> annot_index
   counts_df |> select(!!annot_index) |>
     list(annotation=_) |> append(series, values=_) -> series
   
