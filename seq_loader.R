@@ -175,16 +175,26 @@ new_xModel <- function(target_dir = ".") {
 # Obviously, in this case, the generic already exists, so we only need to
 # provide the method.
 `[.xSeries` <- function(series, i, ...) {
-  
-  # Store original attributes for later restoring and update names
+  # Store original attributes (for later restoring) and update names
   series |> attributes() -> bkp_attribs
   if(!is.null(bkp_attribs$names)) {
     bkp_attribs$names <- names(series)[i]
   }
-  
   # Standard subset of list
   out <- unclass(series)[i]
-  
+  # Restore attributes (including 'class')
+  attributes(out) <- bkp_attribs
+  return(out)
+}
+
+`[.xModel` <- function(model, i, ...) {
+  # Store original attributes (for later restoring) and update names
+  model |> attributes() -> bkp_attribs
+  if(!is.null(bkp_attribs$names)) {
+    bkp_attribs$names <- names(model)[i]
+  }
+  # Standard subset of list
+  out <- unclass(model)[i]
   # Restore attributes (including 'class')
   attributes(out) <- bkp_attribs
   return(out)
