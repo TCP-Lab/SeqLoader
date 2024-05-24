@@ -206,7 +206,8 @@ N_series <- function(xSeries) {
   UseMethod("N_series")
 }
 
-# Get the size of the whole Series (number of Runs from the metadata table)
+# Returns the size of the complete Series
+# (number of Runs in the metadata table)
 N_series.xSeries <- function(series) {
   names(series) |> grepi(GLOBAL$run_regex, x=_) |> length()
 }
@@ -217,9 +218,10 @@ N_selection <- function(xSeries) {
   UseMethod("N_selection")
 }
 
-# Get the actual size of the sub-series of interest (number of Runs in the count matrix)
+# Returns the actual size of the sub-Series of interest
+# (number of Runs in the count matrix)
 N_selection.xSeries <- function(series) {
-  series |> sapply(\(run) ncol(run$genes) == 2) |> unlist() |> sum()
+  series |> sapply(\(run){ncol(run$genes) == 2}) |> unlist() |> sum()
 }
 
 # --- N_genome -----------------------------------------------------------------
@@ -228,8 +230,8 @@ N_genome <- function(xSeries) {
   UseMethod("N_genome")
 }
 
-# Get the size of the genome screened within a given Series
-N_genome.xSeries <- function(series) {series$annotation |> nrow()}
+# Returns the size of the genome screened within a given Series
+N_genome.xSeries <- function(series){series$annotation |> nrow()}
 
 # --- countMatrix --------------------------------------------------------------
 
@@ -237,24 +239,23 @@ countMatrix <- function(xSeries, annot) {
   UseMethod("countMatrix")
 }
 
-# Get the read count matrix out of an xSeries object
+# Rebuilds the read count matrix out of an xSeries object
 countMatrix.xSeries <- function(series, annot = FALSE) {
-  # Find run elements
-  grepi(GLOBAL$run_regex, names(series)) -> run_index
+  # Find Run elements
+  GLOBAL$run_regex |> grepi(names(series)) -> run_index
   
-  # Extract counts, restore run ID names, then merge into one data frame
+  # Extract counts, restore Run ID names, then merge into one data frame
   series[run_index] |> lapply(function(run) {
     counts_df <- run$genes
     colnames(counts_df)[colnames(counts_df) == "counts"] <- run$ena_run
-    counts_df
-  }) |> Reduce(\(x, y) merge(x, y, by = "IDs", all = TRUE), x=_) -> count_matrix
+    return(counts_df)
+  }) |> Reduce(\(x,y){merge(x, y, by = "IDs", all = TRUE)}, x=_) -> count_matrix
   
   if (annot) {
-    # Get annotation
+    # Get annotation and merge with counts
     annot <- series$annotation
-    GLOBAL$geneID_regex |> grepi(colnames(annot)) -> ids_index
-    count_matrix <- merge(annot, count_matrix,
-                          by.x = ids_index, by.y = "IDs", all.y = TRUE)
+    colnames(annot)[GLOBAL$geneID_regex |> grepi(colnames(annot))] <- "IDs"
+    count_matrix <- merge(annot, count_matrix, by = "IDs", all.y = TRUE)
   }
   return(count_matrix)
 }
