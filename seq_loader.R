@@ -6,11 +6,11 @@
 # To make the code lighter, anonymous functions defined in *apply or pipes are
 # NOT self-contained, but instead happily access variables from the outer scope.
 #
-# Also elements form GLOBAL list are accessed without being passed as arguments.
-# However, global variables are never modified andthe (uppercase) 'GLOBAL' name
-# should be enough to make the whole process explicit.
+# Also elements from GLOBAL list are accessed without being passed as arguments.
+# However, such global variables are never modified and the (uppercase) 'GLOBAL'
+# name should be enough to make their global nature explicit.
 #
-# default methods are not implemented
+# Default methods are not implemented
 
 # --- Package Dependencies -----------------------------------------------------
 
@@ -27,6 +27,28 @@ GLOBAL <- list(filename = list(counts = "_countmatrix.*",
 
 # --- Internal Functions -------------------------------------------------------
 
+# A Java-style binary operator to concatenate strings in pipe.
+`%+%` <- \(x,y){paste0(x,y)}
+
+# A Java-style binary operator to construct paths in a platform-independent way.
+`%//%` <- \(x,y){file.path(x, y, fsep = .Platform$file.sep)}
+
+# Only called by constructors. Finds all the CSV and TSV files within the target
+# directory. If any, performs a filename validity check and returns a character
+# vector of suitable files. Stops execution (i.e., object construction) if none
+# is found matching the required filename pattern. 
+get_files <- function(target_dir) {
+  # Scan target directory looking for valid filenames
+  target_dir |> list.files(pattern = "\\.[ct]sv$", ignore.case=T) -> files
+  GLOBAL$filename |> paste(collapse = "|") |>
+    grep(files, ignore.case=T, value=T) |> sort() -> files
+  
+  if (length(files) == 0) {
+    "Can't find suitable CSV/TSV files in " %+% target_dir |> stop()
+  }
+  return(files)
+}
+
 # Automatically adapt to CSV or TSV formats
 read.xsv <- function(file, header = TRUE) {
   if (grepl(".csv$", file, ignore.case = TRUE)) {
@@ -37,12 +59,6 @@ read.xsv <- function(file, header = TRUE) {
     stop("Non-compliant file extension.")
   }
 }
-
-# A Java-style binary operator to concatenate strings in pipe
-`%+%` <- \(x,y){paste0(x,y)}
-
-# A Java-style binary operator to construct paths in a platform-independent way
-`%//%` <- \(x,y){file.path(x, y, fsep = .Platform$file.sep)}
 
 # Any named list knows the names of all the elements it contains (under its
 # attribute 'names'), but it doesn't know its own (even when it has one, e.g.,
@@ -92,8 +108,8 @@ check_filenames <- function(series_ID, files, pattern) {
 # Create a new xSeries
 new_xSeries <- function(series_ID, target_dir = ".") {
 
-  # Get all file names from target directory
-  target_dir |> list.files(pattern = "\\.[ct]sv$") |> sort() -> files
+  # Get all CSV and TSV files from target directory
+  target_dir |> get_files() -> files
   
   # Load data-metadata pair (also sort metadata by `ena_run`)
   series_ID %+% GLOBAL$filename$counts |>
@@ -134,13 +150,11 @@ new_xSeries <- function(series_ID, target_dir = ".") {
 # Create a new xModel
 new_xModel <- function(target_dir = ".") {
 
-  # Get all file names from target directory
-  list.files(path = target_dir, pattern = "\\.[ct]sv$") |> sort() -> files
+  # Get all CSV and TSV files from target directory
+  target_dir |> get_files() -> files
+  
   # Clean series IDs
   files |> sub("_.*$", "", x=_) |> sort() |> unique() -> series_IDs
-  if (length(series_IDs) == 0) {
-    "Cannot find expression series in " %+% target_dir %+% ". Stop constructor." |> stop()
-  }
   
   # Patterns to match
   pattern <- c(count = "_countmatrix.*", meta = "_meta.*")
