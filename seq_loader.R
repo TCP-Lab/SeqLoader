@@ -266,35 +266,35 @@ geneStats <- function(xObject, ...) {
   UseMethod("geneStats")
 }
 
-# Get gene-wise summary stats out of an xSeries object
+# Computes gene-wise summary stats out of an xSeries object
 geneStats.xSeries <- function(series, annot = FALSE, robust = FALSE) {
   
   # Get a log-transformed count matrix
-  count_matrix <- countMatrix(series, annot = annot)
-  count_index <- sapply(count_matrix, is.numeric)
+  series |> countMatrix(annot = annot) -> count_matrix
+  count_matrix |> sapply(is.numeric) -> count_index
   count_matrix[,count_index] <- log2(count_matrix[,count_index] + 1)
   
   # Compute descriptive statistics and assemble results
   count_matrix[,!count_index, drop = FALSE] -> xSeries_stats
-  xSeries_stats$Mean <- rowMeans(count_matrix[,count_index], na.rm=T)
-  xSeries_stats$Std_Dev <- apply(count_matrix[,count_index], 1, sd, na.rm=T)
-  xSeries_stats |> mutate(SEM = Std_Dev/sqrt(sum(count_index))) -> xSeries_stats
+  count_matrix[,count_index] -> x
+  x |> rowMeans(na.rm=T) -> xSeries_stats$Mean
+  x |> apply(1, sd, na.rm=T) -> xSeries_stats$Std_Dev
+  xSeries_stats %<>% mutate(SEM = Std_Dev/sqrt(sum(count_index)))
+  
   # Add median and quartiles if robust = TRUE
   if (robust) {
-    xSeries_stats$Median <- apply(count_matrix[,count_index], 1, median, na.rm=T)
-    xSeries_stats$Q1 <- apply(count_matrix[,count_index], 1, quantile,
-                              probs = 0.25, na.rm=T, names = FALSE)
-    xSeries_stats$Q3 <- apply(count_matrix[,count_index], 1, quantile,
-                              probs = 0.75, na.rm=T, names = FALSE)
-    xSeries_stats |> mutate(IQR = Q3-Q1) -> xSeries_stats
+    x |> apply(1, median, na.rm=T) -> xSeries_stats$Median
+    x |> apply(1, quantile, probs = 0.25, na.rm=T, names=F) -> xSeries_stats$Q1
+    x |> apply(1, quantile, probs = 0.75, na.rm=T, names=F) -> xSeries_stats$Q3
+    xSeries_stats %<>% mutate(IQR = Q3-Q1)
   }
   return(xSeries_stats)
 }
 
-# Get gene-wise summary stats out of an xModel object
+# Computes gene-wise summary stats out of an xModel object
 # Meta-analysis Inclusion Criteria (maic)
-#   inclusive -> (default) keep ALL genes, even if not present in every series
-#   exclusive -> keep only genes present in every series (intersection)
+#   inclusive -> keep ALL genes, even if not present in every Series (union)
+#   exclusive -> keep only genes that present in every Series (intersection)
 geneStats.xModel <- function(model, descriptive = MEAN,
                              maic = "inclusive", annot = FALSE) {
   
@@ -303,18 +303,20 @@ geneStats.xModel <- function(model, descriptive = MEAN,
     setequal(series[[1]]$genes$IDs, model[[1]][[1]]$genes$IDs)
   }) |> all() -> equal_genomes
   if (not(equal_genomes)) {
-    warning("xModel with different genomes.\nThe size of the resulting genome will depend on the inclusion criterion ('maic').")
+    warning("xModel with different genome sizes." %+%
+              "\n`maic` parameter is critical in determining the final size.")
   }
   
-  # Store descriptive stats for each series into one data frame
+  # Store descriptive stats for each Series into one data frame
   model |> lapply(function(series) {
-    xSeries_stats <- geneStats.xSeries(series, annot = FALSE, robust = FALSE)
+    series |> geneStats.xSeries(annot = FALSE, robust = FALSE) -> xSeries_stats
     ##
-    ## # Maybe useful, to add here:
+    ## # Maybe useful to add here:
     ## if (maic == "inclusive") add a new column of gene-wise selection_size
     ## 
-    colnames(xSeries_stats)[-1] <- colnames(xSeries_stats)[-1] %+% "_" %+% attr(series, "own_name")
-    xSeries_stats
+    colnames(xSeries_stats)[-1] %+%
+      "_" %+% attr(series, "own_name") -> colnames(xSeries_stats)[-1]
+    return(xSeries_stats)
   }) |> Reduce(\(x,y) merge(x, y, by = 1, all = ifelse(maic=="inclusive",T,F)),
                x=_) -> large_stats
   
