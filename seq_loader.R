@@ -310,10 +310,6 @@ geneStats.xModel <- function(model, descriptive = MEAN,
   # Store descriptive stats for each Series into one data frame
   model |> lapply(function(series) {
     series |> geneStats.xSeries(annot = FALSE, robust = FALSE) -> xSeries_stats
-    ##
-    ## # Maybe useful to add here:
-    ## if (maic == "inclusive") add a new column of gene-wise selection_size
-    ## 
     colnames(xSeries_stats)[-1] %+%
       "_" %+% attr(series, "own_name") -> colnames(xSeries_stats)[-1]
     return(xSeries_stats)
@@ -321,7 +317,7 @@ geneStats.xModel <- function(model, descriptive = MEAN,
                             all = ifelse(maic == "inclusive", T, F)),
                x=_) -> large_stats
   
-  # Set the list of the actual number of Runs per Series as attribute
+  # Set the list of the actual number of Runs per Series as a Model attribute
   # ...to make them available to descriptive() function
   model |> sapply(N_selection) -> attr(large_stats, "selection_size")
   
