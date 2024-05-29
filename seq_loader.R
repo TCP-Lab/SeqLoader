@@ -306,7 +306,6 @@ geneStats.xModel <- function(model, descriptive = MEAN,
     warning("xModel with different genome sizes." %+%
             "\n`maic` parameter is critical in determining final genome size.")
   }
-  
   # Store descriptive stats for each Series into one data frame
   model |> lapply(function(series) {
     series |> geneStats.xSeries(annot = FALSE, robust = FALSE) -> xSeries_stats
@@ -330,13 +329,6 @@ geneStats.xModel <- function(model, descriptive = MEAN,
   # Model-level annotation synthesis
   if (annot) {
     warning("Model-level annotation synthesis coming soon...")
-    # Implement annotation appending
-    #  1. Merge annotations from all the series by gene_ids (keeping all)
-    #     model |> lapply(\(series) series$annotaton) |>
-    #       Reduce(\(x, y) merge(x, y, by = 1, all = TRUE), x=_)
-    #  2. then consider all columns with the same names and collapse by ','
-    #     unique entries  associated with the same ENSG ID.
-    #  3. Merge this "global annotation" with xModel_stats
   }
   return(xModel_stats)
 }
@@ -398,7 +390,7 @@ keepRuns.xSeries <- function(series, logic) {
   # Capture `logic` expression for Non-Standard Evaluation
   logic_call <- substitute(logic)
   
-  # Find runs in `series` that match the `logic` condition
+  # Find Runs in `series` that match the `logic` condition
   series |> sapply(function(element) {
     if(grepl(GLOBAL$run_regex, element |> attr("own_name"))) {
       # Evaluate captured expression in the proper environment
@@ -409,17 +401,14 @@ keepRuns.xSeries <- function(series, logic) {
   return(series[keep_these])
 }
 
-
-
-# Currently with no generic
-
+# NOTE: Currently with no generic!
+#       This is an alternative "backup" version of the previous method, in case
+#       'substitute()' is not successfully processed in some particular setting.
 # Here `logic` is a string, namely the double-quoted logical expression to be
 # used as filter criterium.
-# NOTE: this is an alternative backup version of the previous method, in case
-#       'substitute()' is not successfully processed in some particular settings.
 keepRuns2.xSeries <- function(series, logic) {
   
-  # Find runs in `series` that match the `logic` condition
+  # Find Runs in `series` that match the `logic` condition
   series |> sapply(function(element) {
     if(grepl(GLOBAL$run_regex, element |> attr("own_name"))) {
       # Evaluate the string expression in the proper data environment
