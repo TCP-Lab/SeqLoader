@@ -342,7 +342,7 @@ geneStats.xModel <- function(model, descriptive = MEAN,
 }
 
 MEAN <- function(large_stats) {
-  large_stats |> colnames() |> grep("^Mean_", x=_) -> mean_index
+  large_stats |> colnames() |> grepl("^Mean_", x=_) -> mean_index
   large_stats[,1, drop = FALSE] -> xModel_stats
   large_stats[,mean_index] -> x
   x |> rowMeans(na.rm=T) -> xModel_stats$Mean
