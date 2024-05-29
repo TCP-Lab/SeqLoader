@@ -1,16 +1,16 @@
 # Constructors and methods for `xSeries` and `xModel` S3 classes
 #
-#
-# IMPLEMENTATION NOTE
-# ~~~~~~~~~~~~~~~~~~~
+# IMPLEMENTATION NOTES
+# ~~~~~~~~~~~~~~~~~~~~
 # To make the code lighter, anonymous functions defined in *apply or pipes are
 # NOT self-contained, but instead happily access variables from the outer scope.
 #
-# Also elements from GLOBAL list are accessed without being passed as arguments.
-# However, such global variables are never modified and the (uppercase) 'GLOBAL'
-# name should be enough to make their global nature explicit.
+# Also elements from GLOBAL list are accessed without being passed as arguments
+# (otherwise what global vars would they be?). However, such variables are never
+# modified and the (uppercase) `GLOBAL` name should be enough to make their
+# global nature explicit.
 #
-# Default methods are not implemented
+# Default methods are (still?) not implemented.
 
 # --- Package Dependencies -----------------------------------------------------
 
@@ -44,7 +44,9 @@ grepli <- function(pattern, x, ...) {grepl(pattern, x, ignore.case = TRUE, ...)}
 get_files <- function(target_dir) {
   # Scan target directory looking for valid filenames
   target_dir |> list.files(pattern = "\\.[ct]sv$", ignore.case=T) -> files
-  GLOBAL$filename |> paste(collapse = "|") |> grepi(files, value=T) |> sort() -> files
+  GLOBAL$filename |> paste(collapse = "|") |>
+    grepi(files, value=T) |> sort() -> files
+  
   if (length(files) == 0) {
     "Can't find suitable CSV/TSV files in " %+% target_dir |> stop()
   }
@@ -119,22 +121,23 @@ new_xSeries <- function(series_ID, target_dir = ".") {
   meta_df |> split(seq(nrow(meta_df))) |> setNames(meta_df$ena_run) -> series
   
   # Find gene ID column in `counts_df`
-  GLOBAL$geneID_regex |> grepi(colnames(counts_df)) -> ids_index
+  GLOBAL$geneID_regex |> grepi(colnames(counts_df), value=T) -> ids_header
   
   # Add `genes` information to each Run in `series`
   series %<>% lapply(function(run) {
     # Look for Run's count data...
     # (search for "isolated" Run IDs, not to confuse, e.g., SRR123 with SRR1234)
     "(^|[^a-zA-Z0-9])" %+% run$ena_run %+% "($|[^a-zA-Z0-9])" |>
-      grepi(colnames(counts_df)) -> count_index
+      grepi(colnames(counts_df), value=T) -> count_header
     # ...and add both counts (if present) and IDs to each Run, as data frame
-    counts_df |> select(IDs = !!ids_index, counts = !!count_index) |>
+    counts_df |> select(IDs = !!ids_header, counts = !!count_header) |>
       list(genes=_) |> append(run, values=_)
     })
   
-  # Add annotation to `series`
+  # Add annotation to `series` (and force IDs to first position)
   GLOBAL$run_regex |> grepi(colnames(counts_df), invert=T) -> annot_index
   counts_df |> select(!!annot_index) |>
+    select(IDs = !!ids_header, everything()) |>
     list(annotation=_) |> append(series, values=_) -> series
   
   # Assign to each Run its own name
@@ -252,10 +255,8 @@ countMatrix.xSeries <- function(series, annot = FALSE) {
   }) |> Reduce(\(x,y){merge(x, y, by = "IDs", all = TRUE)}, x=_) -> count_matrix
   
   if (annot) {
-    # Get annotation and merge with counts
-    annot <- series$annotation
-    colnames(annot)[GLOBAL$geneID_regex |> grepi(colnames(annot))] <- "IDs"
-    count_matrix <- merge(annot, count_matrix, by = "IDs", all.y = TRUE)
+    # Merge annotation with counts
+    count_matrix <- merge(series$annotation, count_matrix, by = "IDs", all.y=T)
   }
   return(count_matrix)
 }
@@ -316,7 +317,8 @@ geneStats.xModel <- function(model, descriptive = MEAN,
     colnames(xSeries_stats)[-1] %+%
       "_" %+% attr(series, "own_name") -> colnames(xSeries_stats)[-1]
     return(xSeries_stats)
-  }) |> Reduce(\(x,y) merge(x, y, by = 1, all = ifelse(maic=="inclusive",T,F)),
+  }) |> Reduce(\(x,y) merge(x, y, by = "IDs",
+                            all = ifelse(maic == "inclusive", T, F)),
                x=_) -> large_stats
   
   # Set the list of the actual number of Runs per Series as attribute
@@ -335,7 +337,7 @@ geneStats.xModel <- function(model, descriptive = MEAN,
 
 MEAN <- function(large_stats) {
   large_stats |> colnames() |> grepl("^Mean_", x=_) -> mean_index
-  large_stats[,1, drop = FALSE] -> xModel_stats
+  large_stats[,"IDs", drop = FALSE] -> xModel_stats
   large_stats[,mean_index] -> x
   x |> rowMeans(na.rm=T) -> xModel_stats$Mean
   x |> apply(1, sd, na.rm=T) -> xModel_stats$Std_Dev
@@ -344,7 +346,7 @@ MEAN <- function(large_stats) {
 
 MEDIAN <- function(large_stats) {
   large_stats |> colnames() |> grepl("^Mean_", x=_) -> mean_index
-  large_stats[,1, drop = FALSE] -> xModel_stats
+  large_stats[,"IDs", drop = FALSE] -> xModel_stats
   large_stats[,mean_index] -> x
   x |> apply(1, median, na.rm=T) -> xModel_stats$Median
   x |> apply(1, quantile, probs = 0.25, na.rm=T, names=F) -> xModel_stats$Q1
@@ -355,7 +357,7 @@ MEDIAN <- function(large_stats) {
 # Sample size (N) weighted mean
 NWMEAN <- function(large_stats) {
   large_stats |> colnames() |> grepl("^Mean_", x=_) -> mean_index
-  large_stats[,1, drop = FALSE] -> xModel_stats
+  large_stats[,"IDs", drop = FALSE] -> xModel_stats
   large_stats[,mean_index] -> x
   large_stats |> attr("selection_size") -> N
   
