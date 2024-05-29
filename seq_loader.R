@@ -351,40 +351,35 @@ MEAN <- function(large_stats) {
 }
 
 MEDIAN <- function(large_stats) {
-  large_stats |> colnames() |> grep("^Mean_", x=_) -> mean_index
+  large_stats |> colnames() |> grepl("^Mean_", x=_) -> mean_index
   large_stats[,1, drop = FALSE] -> xModel_stats
-  
-  xModel_stats$Median <- apply(large_stats[,mean_index], 1, median, na.rm=T)
-  xModel_stats$Q1 <- apply(large_stats[,mean_index], 1, quantile,
-                           probs = 0.25, na.rm=T, names = FALSE)
-  xModel_stats$Q3 <- apply(large_stats[,mean_index], 1, quantile,
-                           probs = 0.75, na.rm=T, names = FALSE)
+  large_stats[,mean_index] -> x
+  x |> apply(1, median, na.rm=T) -> xModel_stats$Median
+  x |> apply(1, quantile, probs = 0.25, na.rm=T, names=F) -> xModel_stats$Q1
+  x |> apply(1, quantile, probs = 0.75, na.rm=T, names=F) -> xModel_stats$Q3
   xModel_stats |> mutate(IQR = Q3-Q1)
 }
 
-# Sample size (n) weighted mean
+# Sample size (N) weighted mean
 NWMEAN <- function(large_stats) {
-  large_stats |> colnames() |> grep("^Mean_", x=_) -> mean_index
+  large_stats |> colnames() |> grepl("^Mean_", x=_) -> mean_index
   large_stats[,1, drop = FALSE] -> xModel_stats
-  
+  large_stats[,mean_index] -> x
   large_stats |> attr("selection_size") -> N
-  large_stats[,mean_index] -> series_mean
   
   # Use mapply to apply grepl element-wise and check correspondence between data
-  # and attributes for each series (it should never happen... but just in case)
-  mapply(grepl, names(N), colnames(series_mean)) |> all() -> good
+  # and attributes for each series (it should always match... but just in case)
+  mapply(grepl, names(N), colnames(x)) |> all() -> good
   if (!good) {
-    stop("Series ID in 'large_stats' colnames do not match 'selection_size' attribute names.")
+    stop("Internal error:\nSeries IDs in 'large_stats' colnames" %+%
+           " do not match 'selection_size' attribute names.")
   }
-  
   # Operator %*% is used for matrix multiplication or dot product of two vectors
-  xModel_stats$Weighted_Mean <- apply(series_mean, 1, '%*%', N)/sum(N)
+  x |> apply(1, '%*%', N)/sum(N) -> xModel_stats$Weighted_Mean
   # squared deviations (d2) and Bessel-corrected Weighted SD
-  nwmeans <- xModel_stats$Weighted_Mean
-  (series_mean - matrix(nwmeans,
-                        nrow = length(nwmeans),
-                        ncol = length(N), byrow = FALSE))^2 -> d2
-  xModel_stats$Weighted_Std_Dev <- (apply(d2, 1, '%*%', N)/(sum(N)-1))^(0.5)
+  xModel_stats$Weighted_Mean -> nwmeans
+  (x - matrix(nwmeans, nrow = length(nwmeans), ncol = ncol(x)))^2 -> d2
+  (d2 |> apply(1, '%*%', N)/(sum(N)-1))^(0.5) -> xModel_stats$Weighted_Std_Dev
   # NOTE: There is no widely accepted definition of standard error of the
   #       weighted mean. For a discussion about this topic see, e.g.,
   # https://stats.stackexchange.com/questions/25895/computing-standard-error-in-weighted-mean-estimation
