@@ -274,7 +274,7 @@ geneStats.xSeries <- function(series, annot = FALSE, robust = FALSE) {
   count_matrix |> sapply(is.numeric) -> count_index
   count_matrix[,count_index] <- log2(count_matrix[,count_index] + 1)
   
-  # Compute descriptive statistics and assemble results
+  # Compute Series-level descriptive stats
   count_matrix[,!count_index, drop = FALSE] -> xSeries_stats
   count_matrix[,count_index] -> x
   x |> rowMeans(na.rm=T) -> xSeries_stats$Mean
@@ -304,7 +304,7 @@ geneStats.xModel <- function(model, descriptive = MEAN,
   }) |> all() -> equal_genomes
   if (not(equal_genomes)) {
     warning("xModel with different genome sizes." %+%
-              "\n`maic` parameter is critical in determining the final size.")
+            "\n`maic` parameter is critical in determining final genome size.")
   }
   
   # Store descriptive stats for each Series into one data frame
@@ -322,9 +322,9 @@ geneStats.xModel <- function(model, descriptive = MEAN,
   
   # Set the list of the actual number of Runs per Series as attribute
   # ...to make them available to descriptive() function
-  attr(large_stats, "selection_size") <- sapply(model, N_selection)
+  model |> sapply(N_selection) -> attr(large_stats, "selection_size")
   
-  # Compute model-level descriptive stats
+  # Compute Model-level descriptive stats
   large_stats |> descriptive() -> xModel_stats
   
   # Model-level annotation synthesis
@@ -344,9 +344,9 @@ geneStats.xModel <- function(model, descriptive = MEAN,
 MEAN <- function(large_stats) {
   large_stats |> colnames() |> grep("^Mean_", x=_) -> mean_index
   large_stats[,1, drop = FALSE] -> xModel_stats
-  
-  xModel_stats$Mean <- rowMeans(large_stats[,mean_index], na.rm=T)
-  xModel_stats$Std_Dev <- apply(large_stats[,mean_index], 1, sd, na.rm=T)
+  large_stats[,mean_index] -> x
+  x |> rowMeans(na.rm=T) -> xModel_stats$Mean
+  x |> apply(1, sd, na.rm=T) -> xModel_stats$Std_Dev
   xModel_stats |> mutate(SEM = Std_Dev/sqrt(sum(mean_index)))
 }
 
