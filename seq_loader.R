@@ -100,6 +100,16 @@ check_pairing <- function(series_ID, files, pattern) {
   return(skip_this)
 }
 
+# Utility function to spot Run objects
+is_run <- function(element) {
+  element |> attr("own_name") -> element_name
+  if (element_name |> is.null()) {
+    FALSE
+  } else {
+    GLOBAL$run_regex |> grepli(element_name)
+  }
+}
+
 # --- Constructors -------------------------------------------------------------
 
 # Create a new xSeries
@@ -235,6 +245,20 @@ N_genome <- function(xSeries) {
 
 # Returns the size of the genome screened within a given Series
 N_genome.xSeries <- function(series){series$annotation |> nrow()}
+
+# --- totalCounts --------------------------------------------------------------
+
+totalCounts <- function(xSeries) {
+  UseMethod("totalCounts")
+}
+
+# Return the sum of counts for each Run in a Series (useful to guess the metric
+# and distinguish among raw counts, normalized counts, FPKM, TPM ...) 
+totalCounts.xSeries <- function(series) {
+  # Find Run elements and get their count sum
+  GLOBAL$run_regex |> grepi(names(series)) -> run_index
+  series[run_index] |> sapply(\(run) run$genes$counts |> sum())
+}
 
 # --- countMatrix --------------------------------------------------------------
 
@@ -378,19 +402,38 @@ NWMEAN <- function(large_stats) {
 
 # --- keepRuns -----------------------------------------------------------------
 
-keepRuns <- function(xSeries, logic) {
+keepRuns <- function(xObject, logic) {
   UseMethod("keepRuns")
 }
 
-# Here `logic` is an unquoted logical expression to be used as filter criterium.
+# Here `logic` is a string, namely the quoted logical expression to be used as
+# filter criterium.
 keepRuns.xSeries <- function(series, logic) {
+  # Find Runs in `series` that match the `logic` condition
+  series |> sapply(function(element) {
+    if(element |> is_run()) {
+      # Evaluate the string expression in the proper data environment
+      logic |> parse(text=_) |> eval() |> with(element, expr=_)
+    } else {TRUE}
+  }) -> keep_these
+  # Dispatch substetting to `[.xSeries`
+  return(series[keep_these])
+}
+
+# NOTE: Currently with no generic!
+# This is an alternative version of the previous method, the only difference
+# being that this method uses Non-Standard Evaluation (NSE) to take an unquoted
+# logical expression as filter criterium. Although working and more elegant, NSE
+# complicated the implementation of this method a bit and I couldn't get it
+# working properly when called from `keepRuns.xModel`.
+keepRuns2.xSeries <- function(series, logic) {
   
   # Capture `logic` expression for Non-Standard Evaluation
   logic_call <- substitute(logic)
   
   # Find Runs in `series` that match the `logic` condition
   series |> sapply(function(element) {
-    if(grepl(GLOBAL$run_regex, element |> attr("own_name"))) {
+    if(element |> is_run()) {
       # Evaluate captured expression in the proper environment
       logic_call |> eval(envir = element)
     } else {TRUE}
@@ -399,21 +442,16 @@ keepRuns.xSeries <- function(series, logic) {
   return(series[keep_these])
 }
 
-# NOTE: Currently with no generic!
-#       This is an alternative "backup" version of the previous method, in case
-#       'substitute()' is not successfully processed in some particular setting.
-# Here `logic` is a string, namely the double-quoted logical expression to be
-# used as filter criterium.
-keepRuns2.xSeries <- function(series, logic) {
-  
-  # Find Runs in `series` that match the `logic` condition
-  series |> sapply(function(element) {
-    if(grepl(GLOBAL$run_regex, element |> attr("own_name"))) {
-      # Evaluate the string expression in the proper data environment
-      logic |> parse(text=_) |> eval() |> with(element, expr=_)
-    } else {TRUE}
-  }) -> keep_these
-  # Dispatch substetting to `[.xSeries`
-  return(series[keep_these])
+# Here `logic` is a string, namely the quoted logical expression to be used as
+# filter criterium.
+keepRuns.xModel <- function(model, logic) {
+  # Store original attributes (for later restoring)
+  model |> attributes() -> bkp_attribs
+  model |> lapply(keepRuns.xSeries, logic) -> out
+  # Restore attributes (including 'class')
+  attributes(out) <- bkp_attribs
+  return(out)
 }
+
+
 
