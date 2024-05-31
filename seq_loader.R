@@ -400,12 +400,41 @@ NWMEAN <- function(large_stats) {
   return(xModel_stats)
 }
 
+# --- pruneRuns ----------------------------------------------------------------
+
+pruneRuns <- function(xObject) {
+  UseMethod("pruneRuns")
+}
+
+# Remove all Runs with no count data from an xSeries object
+pruneRuns.xSeries <- function(series) {
+  # Find Runs in `series` that have the `count` column in gene data frame
+  series |> sapply(function(element) {
+    if(element |> is_run()) {
+      ncol(element$genes) == 2
+    } else {TRUE}
+  }) -> keep_these
+  # Dispatch substetting to `[.xSeries`
+  return(series[keep_these])
+}
+
+# Remove all Runs with no count data from each xSeries of an xModel object
+pruneRuns.xModel <- function(model) {
+  # Store original attributes (for later restoring)
+  model |> attributes() -> bkp_attribs
+  model |> lapply(pruneRuns.xSeries) -> out
+  # Restore attributes (including 'class')
+  attributes(out) <- bkp_attribs
+  return(out)
+}
+
 # --- keepRuns -----------------------------------------------------------------
 
 keepRuns <- function(xObject, logic) {
   UseMethod("keepRuns")
 }
 
+# Filter an xSeries object by selecting Runs that match a logical condition.
 # Here `logic` is a string, namely the quoted logical expression to be used as
 # filter criterium.
 keepRuns.xSeries <- function(series, logic) {
@@ -442,6 +471,8 @@ keepRuns2.xSeries <- function(series, logic) {
   return(series[keep_these])
 }
 
+# Filter an xModel object by selecting Runs that match a logical condition in
+# each one of its xSeries elements.
 # Here `logic` is a string, namely the quoted logical expression to be used as
 # filter criterium.
 keepRuns.xModel <- function(model, logic) {
@@ -452,6 +483,5 @@ keepRuns.xModel <- function(model, logic) {
   attributes(out) <- bkp_attribs
   return(out)
 }
-
 
 
