@@ -110,6 +110,12 @@ is_run <- function(element) {
   }
 }
 
+# Utility function that removes one element by name from a list, suite to work
+# in pipe and preserve class attribute if applied to xSeries/xModel objects.
+remove_element <- function(target_list, element) {
+  target_list[!(names(target_list) == element)]
+}
+
 # --- Constructors -------------------------------------------------------------
 
 # Create a new xSeries
@@ -258,6 +264,21 @@ totalCounts.xSeries <- function(series) {
   # Find Run elements and get their count sum
   GLOBAL$run_regex |> grepi(names(series)) -> run_index
   series[run_index] |> sapply(\(run) run$genes$counts |> sum())
+}
+
+# --- metaTable ----------------------------------------------------------------
+
+metaTable <- function(xSeries) {
+  UseMethod("metaTable")
+}
+
+# Rebuild the matadata table out of an xSeries object
+metaTable.xSeries <- function(series) {
+  series |> remove_element("annotation") |> lapply(remove_element, "genes") |>
+    lapply(as.data.frame) |> lapply(\(run) {
+      attr(run, "row.names") <- run$ena_run
+      return(run)
+    }) |> unsplit(seq(N_series(series)))
 }
 
 # --- countMatrix --------------------------------------------------------------

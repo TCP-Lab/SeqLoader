@@ -127,7 +127,9 @@ s3_class(hCMEC_D3)
 s3_class(hCMEC_D3$GSE138309)
 s3_class(hCMEC_D3$GSE138309$SRR10217414)
 
-# Test methods
+# ~~~~~~~~~~~~~~ #
+#  Test methods  #
+# ~~~~~~~~~~~~~~ #
 
 # Dispatch to N_*.xSeries methods
 N_series(hCMEC_D3$GSE138309)
@@ -137,6 +139,10 @@ N_genome(hCMEC_D3$GSE138309)
 # Dispatch to totalCounts.xSeries
 totalCounts(hCMEC_D3$GSE138309)
 hCMEC_D3 |> lapply(totalCounts)
+
+# Dispatch to metaTable.xSeries
+metaTable(hCMEC_D3$GSE138309)
+hCMEC_D3 |> lapply(metaTable)
 
 # Dispatch to countMatrix.xSeries
 countMatrix(hCMEC_D3$GSE138309) |> head()
@@ -183,10 +189,6 @@ attributes(hCMEC_D3_pruned)
 hCMEC_D3_filtered <- keepRuns(hCMEC_D3_pruned, "extra == 1")
 attributes(hCMEC_D3_filtered)
 attributes(hCMEC_D3_filtered$GSE138309)
-
-
-
-
 
 
 
