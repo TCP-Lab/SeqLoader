@@ -84,8 +84,8 @@ list containing relevant metadata for the specific _Run_, and a `gene` data
 frame with raw or normalized counts for each gene. The `annotation` element, on
 the contrary, is a simple data frame (see tree graph below). Notice that,
 _Samples_ are not explicitly represented in `xSeries` objects. However, a method
-will be implemented to collapse _Runs_ to the samples they belong in the case of
-technical replicates (see issue #4).
+will be implemented to collapse _Runs_ to the _Samples_ they belong in the case
+of technical replicates (see issue #4).
 
 > [!IMPORTANT]
 > For the purpose of a data re-analysis or meta-analysis, one may not
@@ -152,7 +152,7 @@ A number of (hopefully reasonable) assumptions upon file and data organization
 are made for object construction to be successful.
 1. Each _Series_ (or _Study_) is represented by __two__ `CSV` or `TSV` files,
    containing respectively the read counts (along with possible gene
-   annotation) and metadata for all the _Runs_ making up the series.
+   annotation) and metadata for all the _Runs_ making up the _Series_.
 1. All _Series_ related to the same _Model_ are stored in the same directory,
    here referred to as the _target directory_ for __xModel__ construction.
    Consistently, each _Model_ is expected to live in a separate target
