@@ -49,7 +49,7 @@ friendly explanation of the INSDC and the related SRA data model.
 ### General
 ___SeqLoader___ implements S3 `xSeries` and `xModel` classes to provide an
 integrated representation of RNA-Seq data (i.e., read counts), gene annotation,
-and sample metadata for _Series_ and _Models_, respectively.
+and _Sample_/_Run_ metadata for _Series_ and _Models_, respectively.
 
 Both `new_xSeries` and `new_xModel` ___SeqLoader___ constructors assume that
 RNA-Seq low-level analysis (i.e., read alignment and transcript abundance
@@ -82,7 +82,10 @@ each _Run_ of the study in question, and an additional element for gene
 annotations (which are common to all _Runs_). Each _Run_ element is itself a
 list containing relevant metadata for the specific _Run_, and a `gene` data
 frame with raw or normalized counts for each gene. The `annotation` element, on
-the contrary, is a simple data frame (see tree graph below).
+the contrary, is a simple data frame (see tree graph below). Notice that,
+_Samples_ are not explicitly represented in `xSeries` objects. However, a method
+will be implemented to collapse _Runs_ to the samples they belong in the case of
+technical replicates (see issue #4).
 
 > [!IMPORTANT]
 > For the purpose of a data re-analysis or meta-analysis, one may not
@@ -100,9 +103,9 @@ the contrary, is a simple data frame (see tree graph below).
 
 ###  `xModel` objects
 Structurally speaking, these S3 objects are just collections (lists) of many
-`xSeries` related to the same biological model. Methods implementing generics
-for this class are primarily meant to aid in meta-analytic data synthesis (see
-`geneStats` in particular).
+`xSeries` related to the same biological model. Rather, the focus here is on
+functions. Methods implementing generics for this class are primarily meant to
+aid in meta-analytic data synthesis (see `geneStats` in particular).
 
 Here is a graph of a generic _xModel_ made up of _n_ _xSeries_. The _n-th_
 _Series_ consists of _m_ _Runs_ and the gene `annotation` element. Each _Run_
