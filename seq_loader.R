@@ -14,9 +14,10 @@
 
 # --- Package Dependencies -----------------------------------------------------
 
-library(dplyr)    # `arrange()`, `select()`, `mutate()`
-library(rlang)    # Injection operator `!!`
+library(dplyr)    # `arrange()`, `select()`, `filter()`, `mutate()`
+library(rlang)    # `sym()` and Injection operator `!!`
 library(magrittr) # For pipe assignment operator %<>% and Aliases (equals())
+library(tidyr)    # `separate_rows()`
 
 # --- Globals ------------------------------------------------------------------
 
@@ -510,6 +511,49 @@ keepRuns.xModel <- function(model, logic) {
   # Store original attributes (for later restoring)
   model |> attributes() -> bkp_attribs
   model |> lapply(keepRuns.xSeries, logic) -> out
+  # Restore attributes (including 'class')
+  attributes(out) <- bkp_attribs
+  return(out)
+}
+
+# --- subsetGenes --------------------------------------------------------------
+
+subsetGenes <- function(xObject, key, geneset) {
+  UseMethod("subsetGenes")
+}
+
+# Filter all the elements of an xSeries (both Runs and annotation) based on a
+# key and a list of genes of interest (GOIs). Actually, `geneset` can be a
+# character vector, a n-by-1 matrix, or a n-by-1 dataframe.
+subsetGenes.xSeries <- function(series, key, geneset) {
+  # Get count matrix (with annotation), explode possibly collapsed entries
+  # (e.g., many SYMBOLS per ENSG ID), then filter row-wise.
+  geneset %<>% unlist()
+  series |> countMatrix(annot = TRUE) |> separate_rows(!!key, sep = ",") |>
+    as.data.frame() |> filter(!!sym(key) %in% geneset) -> sub_counts_df
+  
+  # Check for completeness
+  if (setdiff(geneset, sub_counts_df$SYMBOL) |> length() > 0) {
+    cat("\nWARNING:\n Can't find these Genes of Interest in the Count Matrix:",
+        setdiff(geneset, sub_counts_df$SYMBOL), sep = "\n  ")
+  }
+  # Check for duplicate entries in `key` column (e.g., many ENSG IDs per SYMBOL)
+  if (sub_counts_df[key] |> duplicated() |> sum() > 0) {
+    "Duplicated '" %+% key %+% "' entries detected but not handled" |> warning()
+  }
+
+  # Reassemble the xSeries from filtered data
+  to_xSeries(counts_df = sub_counts_df,
+             meta_df = metaTable(series))
+}
+
+# Filter all the elements of all the xSeries of an xModel object.
+subsetGenes.xModel <- function(model, key, geneset) {
+  # Store original attributes (for later restoring)
+  model |> attributes() -> bkp_attribs
+  model |> lapply(subsetGenes.xSeries, key, geneset) -> out
+  # Re-assign to each Run its own name
+  out %<>% set_own_names()
   # Restore attributes (including 'class')
   attributes(out) <- bkp_attribs
   return(out)

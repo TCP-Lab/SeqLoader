@@ -172,6 +172,9 @@ geneStats(hCMEC_D3$GSE138309$SRR10217414)
 hCMEC_D3$GSE138309 |> attributes()
 GSE138309_pruned <- pruneRuns(hCMEC_D3$GSE138309)
 attributes(GSE138309_pruned)
+# Notice that
+GSE138309 |> metaTable()
+GSE138309_pruned |> metaTable()
 
 # Dispatch to pruneRuns.xModel and check attribute preservation
 attributes(hCMEC_D3)
@@ -182,17 +185,32 @@ attributes(hCMEC_D3_pruned$GSE138309)
 # Dispatch to keepRuns.xSeries and check attribute preservation (by dispatching
 # to extraction operator [...])
 GSE138309_pruned |> attributes()
-GSE138309_filtered <- keepRuns(GSE138309_pruned, "extra == 1")
-attributes(GSE138309_filtered)
+GSE138309_reduced <- keepRuns(GSE138309_pruned, "extra == 1")
+attributes(GSE138309_reduced)
 
 # Alternative NSE version (directly applied to unpruned series)
-GSE138309_filtered2 <- keepRuns2.xSeries(hCMEC_D3$GSE138309, extra == 1)
+GSE138309_reduced2 <- keepRuns2.xSeries(hCMEC_D3$GSE138309, extra == 1)
 
 # Dispatch to keepRuns.xModel and check attribute preservation
 attributes(hCMEC_D3_pruned)
-hCMEC_D3_filtered <- keepRuns(hCMEC_D3_pruned, "extra == 1")
-attributes(hCMEC_D3_filtered)
-attributes(hCMEC_D3_filtered$GSE138309)
+hCMEC_D3_reduced <- keepRuns(hCMEC_D3_pruned, "extra == 1")
+attributes(hCMEC_D3_reduced)
+attributes(hCMEC_D3_reduced$GSE138309)
 
+# Dispatch to subsetGenes.xSeries and check attribute preservation
+GSE138309 |> attributes()
+gois <- c("CFTR", "AQP1", "TRPV1", "RYR1" ,"ADORA1")
+GSE138309_filtered <- subsetGenes(hCMEC_D3$GSE138309, "SYMBOL", gois)
+GSE138309_filtered |> attributes()
+
+GSE138309 |> N_genome()
+GSE138309_filtered |> N_genome()
+
+# Dispatch to keepRuns.xModel and check attribute preservation
+attributes(hCMEC_D3)
+hCMEC_D3_filtered <- subsetGenes(hCMEC_D3, "SYMBOL", gois)
+attributes(hCMEC_D3_filtered)
+attributes(hCMEC_D3$GSE138309)
+attributes(hCMEC_D3_filtered$GSE138309)
 
 
