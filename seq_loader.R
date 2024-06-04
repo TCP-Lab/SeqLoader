@@ -20,10 +20,11 @@ library(magrittr) # For pipe assignment operator %<>% and Aliases (equals())
 
 # --- Globals ------------------------------------------------------------------
 
-GLOBAL <- list(filename = list(counts = "_countmatrix.*",
-                               metadata = "_meta.*"),
-               geneID_regex = "gene.*id|transcript.*id|ENSEMBL|ENSEMBLTRANS",
-               run_regex = "(E|D|S)RR[0-9]{6,}")
+GLOBAL <-
+  list(filename = list(counts = "_countmatrix.*",
+                       metadata = "_meta.*"),
+       geneID_regex = "^IDs$|gene.*id|transcript.*id|ENSEMBL|ENSEMBLTRANS",
+       run_regex = "(E|D|S)RR[0-9]{6,}")
 
 # --- Internal Functions -------------------------------------------------------
 
@@ -133,11 +134,20 @@ new_xSeries <- function(series_ID, target_dir = ".") {
   series_ID %+% GLOBAL$filename$metadata |> grepi(files, value=T) -> meta_file
   target_dir %//% meta_file |> read.xsv() |> arrange(ena_run) -> meta_df
   
+  # From two data frames to one xSeries object
+  to_xSeries(counts_df, meta_df)
+}
+
+# Create an xSeries object from R variables
+to_xSeries <- function(counts_df, meta_df) {
   # Convert rows to a (named) list
   meta_df |> split(seq(nrow(meta_df))) |> setNames(meta_df$ena_run) -> series
   
   # Find gene ID column in `counts_df`
   GLOBAL$geneID_regex |> grepi(colnames(counts_df), value=T) -> ids_header
+  if (length(ids_header) != 1) {
+    "Cannot find a suitable gene ID column in `counts_df`" |> stop()
+  }
   
   # Add `genes` information to each Run in `series`
   series %<>% lapply(function(run) {
@@ -148,7 +158,7 @@ new_xSeries <- function(series_ID, target_dir = ".") {
     # ...and add both counts (if present) and IDs to each Run, as data frame
     counts_df |> select(IDs = !!ids_header, counts = !!count_header) |>
       list(genes=_) |> append(run, values=_)
-    })
+  })
   
   # Add annotation to `series` (and force IDs to first position)
   GLOBAL$run_regex |> grepi(colnames(counts_df), invert=T) -> annot_index

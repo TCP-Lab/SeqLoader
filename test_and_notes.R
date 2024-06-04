@@ -148,6 +148,10 @@ hCMEC_D3 |> lapply(metaTable)
 countMatrix(hCMEC_D3$GSE138309) |> head()
 countMatrix(hCMEC_D3$GSE138309, annot = TRUE) |> head()
 
+# Disassemble and reassemble an xSeries and check that it matches the original
+to_xSeries(counts_df = countMatrix(hCMEC_D3$GSE138309, annot = TRUE),
+           meta_df = metaTable(hCMEC_D3$GSE138309)) |> View()
+
 # Dispatch to geneStats.xSeries
 geneStats(hCMEC_D3$GSE138309) |> head()
 geneStats(hCMEC_D3$GSE138309, T) |> head()
