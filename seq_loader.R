@@ -295,6 +295,7 @@ factTable <- function(xObject) {
   UseMethod("factTable")
 }
 
+# Print main facts about an xSeries object structure and contents
 factTable.xSeries <- function(series) {
   cat(tab("xSeries", 8), ":", attr(series, "own_name"), "\n")
   cat(tab("Contents", 8), ":", N_series(series), "Runs + annotation\n")
@@ -312,6 +313,7 @@ factTable.xSeries <- function(series) {
   }) |> invisible()
 }
 
+# Print main facts about an xModel object structure and contents
 factTable.xModel <- function(model) {
   cat(tab("xModel", 8), ":", attr(model, "own_name"), "\n")
   cat(tab("Contents", 8), ":", length(model), "xSeries\n")
@@ -578,9 +580,10 @@ subsetGenes.xSeries <- function(series, key, geneset) {
     as.data.frame() |> filter(!!sym(key) %in% geneset) -> sub_counts_df
   
   # Check for completeness
-  if (setdiff(geneset, sub_counts_df$SYMBOL) |> length() > 0) {
-    cat("\nWARNING:\n Can't find these Genes of Interest in the Count Matrix:",
-        setdiff(geneset, sub_counts_df$SYMBOL), sep = "\n  ")
+  if (setdiff(geneset, sub_counts_df[,key]) |> length() > 0) {
+    cat("\nWARNING by ", attr(series, "own_name"), ":",
+        "\n Can't find these Genes of Interest in count matrix:\n  ", sep = "")
+    cat(setdiff(geneset, sub_counts_df[,key]), sep = "\n  ")
   }
   # Check for duplicate entries in `key` column (e.g., many ENSG IDs per SYMBOL)
   if (sub_counts_df[key] |> duplicated() |> sum() > 0) {
