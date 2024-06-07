@@ -35,6 +35,17 @@ GLOBAL <-
 # A Java-style binary operator to construct paths in a platform-independent way.
 `%//%` <- \(x,y){file.path(x, y, fsep = .Platform$file.sep)}
 
+# Tab Stop (borrowed from r4tcpl package)
+tab <- function (word = "", sp = 7) {
+  word <- toString(word)
+  if (sp < nchar(word)) {
+    warning("The word to include exceeds tab stop... can't align properly!")
+  } else {
+    word <- paste0(word, paste(rep(" ", sp - nchar(word)), collapse = ""))
+  }
+  return(word)
+}
+
 # Shorthand for case insensitive 'grep' and 'grepl'
 grepi <- function(pattern, x, ...) {grep(pattern, x, ignore.case = TRUE, ...)}
 grepli <- function(pattern, x, ...) {grepl(pattern, x, ignore.case = TRUE, ...)}
@@ -48,7 +59,6 @@ get_files <- function(target_dir) {
   target_dir |> list.files(pattern = "\\.[ct]sv$", ignore.case=T) -> files
   GLOBAL$filename |> paste(collapse = "|") |>
     grepi(files, value=T) |> sort() -> files
-  
   if (length(files) == 0) {
     "Can't find suitable CSV/TSV files in " %+% target_dir |> stop()
   }
@@ -277,6 +287,39 @@ totalCounts.xSeries <- function(series) {
   # Find Run elements and get their count sum
   GLOBAL$run_regex |> grepi(names(series)) -> run_index
   series[run_index] |> sapply(\(run) run$genes$counts |> sum())
+}
+
+# --- factTable ----------------------------------------------------------------
+
+factTable <- function(xObject) {
+  UseMethod("factTable")
+}
+
+factTable.xSeries <- function(series) {
+  cat(tab("xSeries", 8), ":", attr(series, "own_name"), "\n")
+  cat(tab("Contents", 8), ":", N_series(series), "Runs + annotation\n")
+  series |> sapply(\(element) {
+    if(element |> is_run()) {
+      cat(" - ", tab(attr(element, "own_name"), 12),
+          "[ ", nrow(element$genes), " genes | ",
+          tab(sprintf("%.2e", sum(element$genes$counts)), 9),
+          "TOT counts ]\n", sep = "")
+    } else {
+      cat(" + ", tab(attr(element, "own_name"), 12),
+          "[ ", nrow(element), " genes ]\n", sep = "")
+      names(element) |> sapply(\(field) cat("    -", field, "\n"))
+    }
+  }) |> invisible()
+}
+
+factTable.xModel <- function(model) {
+  cat(tab("xModel", 8), ":", attr(model, "own_name"), "\n")
+  cat(tab("Contents", 8), ":", length(model), "xSeries\n")
+  model |> sapply(\(series) {
+    cat(" - ", tab(attr(series, "own_name"), 12),
+        "[ ", tab(N_series(series), 3), "Runs | ",
+        N_genome(series), " genes ]\n", sep = "")
+  }) |> invisible()
 }
 
 # --- metaTable ----------------------------------------------------------------

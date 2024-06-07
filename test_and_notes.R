@@ -145,6 +145,10 @@ N_genome(hCMEC_D3$GSE138309)
 totalCounts(hCMEC_D3$GSE138309)
 hCMEC_D3 |> lapply(totalCounts)
 
+# Dispatch to the proper factTable
+hCMEC_D3 |> factTable()
+hCMEC_D3$GSE138309 |> factTable()
+
 # Dispatch to metaTable.xSeries
 metaTable(hCMEC_D3$GSE138309)
 hCMEC_D3 |> lapply(metaTable)
