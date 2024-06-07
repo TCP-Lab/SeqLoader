@@ -191,8 +191,10 @@ new_xModel <- function(target_dir = ".") {
   # Build up the xModel object
   series_IDs |> lapply(new_xSeries, target_dir) |> setNames(series_IDs) -> model
   
-  # Assign to each Run its own name
+  # Assign to each Series its own name
   model %<>% set_own_names()
+  # Also give a name to the whole model
+  attr(model, "own_name") <- basename(target_dir)
   
   # Make `model` an S3 object (inheriting from class 'list') and return it
   structure(model, class = c("xModel", "list"))

@@ -90,17 +90,22 @@ methods(geneStats)
 # only 'GSE195781_CounMatrix_genes_TPM.tsv' should be excluded
 target_dir |> get_files()
 
-# Build an xSeries object
+# ~~~ Build an xSeries object ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 GSE138309 <- new_xSeries("GSE138309", target_dir)
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 # Explore Series (e.g., find megareads for a given Run)
 GSE138309$SRR10217414$read_count/1e6
 
-# Build a new xModel object and test `check_pairing()` behavior
+# ~~~ Build a new xModel object and test `check_pairing()` ~~~~~~~~~~~~~~~~~~~~~
 # Two series should be excluded with the following warnings:
 # Warning messages:
 #  1: In FUN(X[[i]], ...) : Bad filename pair in series GSE139133: skip!
 #  2: In FUN(X[[i]], ...) : Wrong number of files in series GSE195781: skip!
+
 hCMEC_D3 <- new_xModel(target_dir)
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Check reordering/renaming of the gene ID column in `annotation` data.frame
 read.xsv(target_dir %//% "GSE205739_CountMatrix_genes_TPM.tsv") |> colnames()
