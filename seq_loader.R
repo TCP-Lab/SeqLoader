@@ -350,7 +350,7 @@ countMatrix.xSeries <- function(series, annot = FALSE) {
   # Find Run elements
   GLOBAL$run_regex |> grepi(names(series)) -> run_index
   
-  # Extract counts, restore Run ID names, then merge into one data frame
+  # Extract counts, set clean Run IDs as column names, merge into one data frame
   series[run_index] |> lapply(function(run) {
     counts_df <- run$genes
     colnames(counts_df)[colnames(counts_df) == "counts"] <- run$ena_run
@@ -371,6 +371,8 @@ geneStats <- function(xObject, ...) {
 }
 
 # Computes gene-wise summary stats out of an xSeries object
+# Value: returns a data frame with the extra-attribute 'metadata' about the Runs
+#        actually present in the count matrix used for stats (i.e, selection).
 geneStats.xSeries <- function(series, annot = FALSE, robust = FALSE) {
   
   # Get a log-transformed count matrix
@@ -392,6 +394,11 @@ geneStats.xSeries <- function(series, annot = FALSE, robust = FALSE) {
     x |> apply(1, quantile, probs = 0.75, na.rm=T, names=F) -> xSeries_stats$Q3
     xSeries_stats %<>% mutate(IQR = Q3-Q1)
   }
+  
+  # Add selection metadata as attribute
+  metaTable(series)$ena_run %in% names(count_matrix) -> meta_index
+  attr(xSeries_stats, "metadata") <- metaTable(series)[meta_index,]
+  
   return(xSeries_stats)
 }
 

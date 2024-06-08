@@ -99,13 +99,13 @@ GSE138309 <- new_xSeries("GSE138309", target_dir)
 GSE138309$SRR10217414$read_count/1e6
 
 # ~~~ Build a new xModel object and test `check_pairing()` ~~~~~~~~~~~~~~~~~~~~~
+
+hCMEC_D3 <- new_xModel(target_dir)
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Two series should be excluded with the following warnings:
 # Warning messages:
 #  1: In FUN(X[[i]], ...) : Bad filename pair in series GSE139133: skip!
 #  2: In FUN(X[[i]], ...) : Wrong number of files in series GSE195781: skip!
-
-hCMEC_D3 <- new_xModel(target_dir)
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Check reordering/renaming of the gene ID column in `annotation` data.frame
 read.xsv(target_dir %//% "GSE205739_CountMatrix_genes_TPM.tsv") |> colnames()
@@ -161,11 +161,13 @@ countMatrix(hCMEC_D3$GSE138309, annot = TRUE) |> head()
 to_xSeries(counts_df = countMatrix(hCMEC_D3$GSE138309, annot = TRUE),
            meta_df = metaTable(hCMEC_D3$GSE138309)) |> View()
 
-# Dispatch to geneStats.xSeries
+# Dispatch to geneStats.xSeries and check 'metadata' attribute
 geneStats(hCMEC_D3$GSE138309) |> head()
 geneStats(hCMEC_D3$GSE138309, T) |> head()
 geneStats(hCMEC_D3$GSE138309, annot = FALSE, robust = TRUE) |> head()
 geneStats(hCMEC_D3$GSE138309, T, T) |> head()
+attr(geneStats(hCMEC_D3$GSE138309), "metadata")$read_count |>
+  (\(z){mean(z)/1e6})() |> round(digits = 2) # Average megareads per Run
 
 # Dispatch to geneStats.xModel
 geneStats(hCMEC_D3) |> head()
