@@ -373,6 +373,7 @@ geneStats <- function(xObject, ...) {
 # Computes gene-wise summary stats out of an xSeries object
 # Value: returns a data frame with the extra-attribute 'metadata' about the Runs
 #        actually present in the count matrix used for stats (i.e, selection).
+#        Gene expression stats are always in log scale.
 geneStats.xSeries <- function(series, annot = FALSE, robust = FALSE) {
   
   # Get a log-transformed count matrix
